@@ -87,18 +87,27 @@ export function createRails(network, terrain) {
     pushQuadStrip(pts, yr, TRACK.railW / 2, TRACK.gauge, cRail);
 
     // sleepers, bridges and tunnel mouths along the edge
-    let acc = 0, wasTunnel = false;
+    let acc = 0;
+    const tunnelAt = (i) => h[i] - raw[i] < -TRACK.tunnelBelow;
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i];
       const above = h[i] - raw[i];
-      const tunnel = above < -TRACK.tunnelBelow;
+      const tunnel = tunnelAt(i);
       const bridge = above > TRACK.bridgeAbove;
       if (i > 0) acc += d[i] - d[i - 1];
       if (acc >= TRACK.sleeperEvery && !tunnel) { sleepers.push([p.x, ys[i] + 0.012, p.z, Math.atan2(p.tx, p.tz)]); acc = 0; }
       if (bridge && i % 2 === 0) piers.push([p.x, raw[i], p.z, Math.atan2(p.tx, p.tz), above + TRACK.lift]);
       if (bridge) pushQuadStrip([pts[Math.max(0, i - 1)], p], [ys[Math.max(0, i - 1)] - 0.02, ys[i] - 0.02], TRACK.ballastHalf + 0.12, 0, cDeck);
-      if (tunnel !== wasTunnel) portals.push([p.x, ys[i], p.z, Math.atan2(p.tx, p.tz)]);
-      wasTunnel = tunnel;
+    }
+    // a portal at each end of a bore that is at least a kilometre long
+    const minRun = Math.round(1.0 / TRACK.step);
+    for (let i = 0; i < pts.length; i++) {
+      if (!tunnelAt(i) || (i > 0 && tunnelAt(i - 1))) continue;
+      let j = i; while (j < pts.length && tunnelAt(j)) j++;
+      if (j - i >= minRun) {
+        for (const k of [i, j - 1]) { const p = pts[k]; portals.push([p.x, ys[k], p.z, Math.atan2(p.tx, p.tz)]); }
+      }
+      i = j;
     }
   }
 
@@ -131,7 +140,7 @@ export function createRails(network, terrain) {
   group.add(pierMesh);
 
   // tunnel portals: a stone arch face across the track
-  const portalGeo = paint(new THREE.BoxGeometry(2.2, 0.95, 0.35).translate(0, 0.42, 0).toNonIndexed(), C.stoneDark, 0.08);
+  const portalGeo = paint(new THREE.BoxGeometry(1.15, 0.42, 0.22).translate(0, 0.16, 0).toNonIndexed(), C.stoneDark, 0.08);
   const portalMesh = new THREE.InstancedMesh(portalGeo, stdMat(), Math.max(1, portals.length));
   portals.forEach(([x, y, z, rot], i) => setInstance(portalMesh, i, x, y - 0.04, z, rot));
   portalMesh.count = portals.length;
