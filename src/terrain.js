@@ -194,6 +194,7 @@ function biomeColour(lon, lat, m, dWater, israel) {
 
   let c = mixHex(C.plain, C.galilee, north);
   c = mixHex(c, C.judea, centre * smooth((m - 250) / 300));
+  c = mixHex(c, C.olive, north * (1 - east) * smooth((m - 300) / 400) * 0.5);
   c = mixHex(c, C.judeanDesert, centre * east * smooth((31.95 - lat) / 0.3));
   c = mixHex(c, C.negev, negev);
   c = mixHex(c, C.negevSouth, deepSouth);
