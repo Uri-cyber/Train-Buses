@@ -292,23 +292,30 @@ function harbour(vb, lit) {
 /* ------------------------------------------------------------------- town */
 
 function townBuilding(vb, lit, x, z, w, d, h, seed) {
-  const wallCols = [C.brick, C.plaster, C.brickDark, 0xc9b28f, 0x9fae9a];
-  const roofCols = [C.roofTile, C.roofSlate, C.roofGreen];
+  const wallCols = [C.brick, C.plaster, 0xc9b28f, 0xb8564a, 0xd8cdb4, 0x9fae9a, 0xc07a5a];
+  const roofCols = [C.roofTile, C.roofSlate, C.roofGreen, 0x6d4a3f];
   const wc = wallCols[seed % wallCols.length];
   const rc = roofCols[(seed >> 1) % roofCols.length];
   vb.box(x, h / 2, z, w, h, d, wc, { jitter: 0.07 });
   if (seed % 3 === 0) {
-    vb.gable(x, h, z, w + 0.008, 0.045, d + 0.008, rc);
+    vb.box(x, h + 0.003, z, w + 0.010, 0.006, d + 0.010, rc);         // eaves
+    vb.gable(x, h + 0.005, z, w + 0.010, 0.030, d + 0.010, rc);
   } else {
-    vb.box(x, h + 0.007, z, w + 0.014, 0.014, d + 0.014, rc);
-    vb.box(x, h + 0.022, z, w * 0.5, 0.020, d * 0.5, rc, { jitter: 0.05 });
+    vb.box(x, h + 0.005, z, w + 0.012, 0.010, d + 0.012, rc);
+    vb.box(x, h + 0.016, z, w * 0.42, 0.012, d * 0.42, rc, { jitter: 0.05 });
   }
-  vb.cyl(x + w * 0.3, h + 0.045, z - d * 0.2, 0.008, 0.055, C.brickDark, 6);
-  const rows = Math.max(1, Math.round(h / 0.055));
-  windowGrid(vb, lit, x, h * 0.55, z + d / 2 + 0.003, w * 0.72, h * 0.5, 3, rows, 'z');
-  windowGrid(vb, lit, x, h * 0.55, z - d / 2 - 0.003, w * 0.72, h * 0.5, 3, rows, 'z', -1);
-  // door
-  vb.box(x, 0.024, z + d / 2 + 0.004, 0.020, 0.048, 0.006, C.timber);
+  // chimney: on the roof, not beside it
+  vb.cyl(x + w * 0.24, h + 0.016, z - d * 0.12, 0.0055, 0.034, C.brickDark, 6);
+
+  // windows sit above the door line so the two never share a wall square
+  const sillY = 0.042, headY = h - 0.012;
+  const rows = Math.max(1, Math.round((headY - sillY) / 0.038));
+  const wy = (sillY + headY) / 2, wh = Math.max(0.020, headY - sillY);
+  windowGrid(vb, lit, x, wy, z + d / 2 + 0.003, w * 0.70, wh, 3, rows, 'z');
+  windowGrid(vb, lit, x, wy, z - d / 2 - 0.003, w * 0.70, wh, 3, rows, 'z', -1);
+  // door and step
+  vb.box(x, 0.016, z + d / 2 + 0.003, 0.017, 0.032, 0.005, C.timber);
+  vb.box(x, 0.0025, z + d / 2 + 0.008, 0.024, 0.005, 0.012, C.pavement);
 }
 
 function town(vb, lit) {
@@ -321,7 +328,7 @@ function town(vb, lit) {
     const w = rand(0.09, 0.15);
     const d = rand(0.10, 0.16);
     // low roofline, and a gap left of centre so the layout stays visible
-    const h = rand(0.065, 0.115);
+    const h = rand(0.075, 0.125);
     const z = T.z0 + d / 2 + rand(0.01, 0.05);
     if (x > -0.34 && x < 0.46) { x += 0.10; i++; continue; }
     townBuilding(vb, lit, x + w / 2, z, w, d, h, i);
@@ -336,7 +343,7 @@ function town(vb, lit) {
     const d = rand(0.09, 0.15);
     const w = rand(0.10, 0.16);
     const bx = Rz.x0 + w / 2 + rand(0.005, 0.03);
-    townBuilding(vb, lit, bx, z + d / 2, w, d, rand(0.09, 0.18), j + 5);
+    townBuilding(vb, lit, bx, z + d / 2, w, d, rand(0.085, 0.155), j + 5);
     reg('building', 'town-r' + j, bx - w / 2, bx + w / 2, z, z + d, 0, 0.26);
     z += d + rand(0.03, 0.07);
     j++;
@@ -348,7 +355,7 @@ function town(vb, lit) {
   vb.box(cx - 0.10, 0.115, cz - 0.05, 0.07, 0.23, 0.07, C.plaster, { jitter: 0.05 });
   vb.roof(cx - 0.10, 0.23, cz - 0.05, 0.075, 0.10, 0.075, C.roofSlate);
   lit.box(cx - 0.10, 0.20, cz - 0.014, 0.030, 0.030, 0.006, 0xffe6b0);
-  windowGrid(vb, lit, cx, 0.085, cz + 0.096, 0.10, 0.055, 2, 1, 'z');
+  windowGrid(vb, lit, cx, 0.088, cz + 0.096, 0.09, 0.045, 2, 1, 'z');
   reg('building', 'church', cx - 0.15, cx + 0.07, cz - 0.10, cz + 0.10, 0, 0.34);
 
   // street lamps down both roads

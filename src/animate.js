@@ -99,7 +99,7 @@ export function createLoop(w) {
     // Emissive panes carry their own colour in the vertex data, so the shared
     // material only has to ride from ~black (off) to white (fully lit).
     const glow = Math.max(state.lights ? 0.9 : 0, Math.min(1, (dark - 0.42) * 2.2));
-    const g = 0.05 + glow * 0.95;
+    const g = 0.018 + glow * 0.982;
     for (const m of world.windowMats) m.color.setRGB(g, g, g);
 
     // ---- trains

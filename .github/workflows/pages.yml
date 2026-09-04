@@ -19,14 +19,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # enablement:true creates the Pages site on first run, so no manual
-      # setup is needed in the repository settings
+      # Tries to create the Pages site; on repositories where the Actions
+      # token is not allowed to do that, Pages has to be switched on once by
+      # hand (Settings -> Pages -> Source: GitHub Actions) and this step is
+      # then a no-op. Either way the build below still runs.
       - uses: actions/configure-pages@v5
+        continue-on-error: true
         with:
           enablement: true
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - name: Check the layout for clipping
