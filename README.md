@@ -12,6 +12,8 @@ the whistle are produced at runtime.
 
 ![The same layout after dark](docs/screenshot-night.png)
 
+![The station, at platform level](docs/screenshot-station.png)
+
 ## Running it
 
 ```

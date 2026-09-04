@@ -129,38 +129,41 @@ function windowGrid(vb, lit, x, y, z, w, h, cols, rows, face, out = 1, glowCol =
 function station(vb, lit) {
   const S = ZONES.station;
   const cz = (S.z0 + S.z1) / 2, d = S.z1 - S.z0;
-  // platform
-  vb.box((S.x0 + S.x1) / 2, 0.021, cz, S.x1 - S.x0, 0.042, d, C.concrete, { jitter: 0.05 });
-  vb.box((S.x0 + S.x1) / 2, 0.043, S.z1 - 0.006, S.x1 - S.x0, 0.004, 0.012, C.concreteDk);
-  // yellow safety line along the platform edge facing the main line
-  vb.box((S.x0 + S.x1) / 2, 0.0435, S.z1 - 0.018, S.x1 - S.x0, 0.003, 0.010, 0xd9b24a);
+  const cxS = (S.x0 + S.x1) / 2, wS = S.x1 - S.x0;
+  const PH = 0.022;                       // platform height: about a metre above the railhead
+
+  vb.box(cxS, PH / 2, cz, wS, PH, d, C.concrete, { jitter: 0.05 });
+  vb.box(cxS, PH + 0.002, S.z1 - 0.005, wS, 0.004, 0.010, C.concreteDk);
+  vb.box(cxS, PH + 0.003, S.z1 - 0.014, wS, 0.003, 0.007, 0xd9b24a);   // safety line
 
   // station building, set back from the platform edge
   const bx = -0.44, bw = 0.26, bd = 0.085;
   const bz = S.z0 + bd / 2 + 0.010;
-  const by = 0.042;
-  vb.box(bx, by + 0.048, bz, bw, 0.096, bd, C.brick, { jitter: 0.06 });
-  vb.box(bx, by + 0.098, bz, bw + 0.012, 0.006, bd + 0.012, C.roofSlate);   // eaves
-  vb.gable(bx, by + 0.101, bz, bw + 0.012, 0.036, bd + 0.012, C.roofSlate);
-  windowGrid(vb, lit, bx, by + 0.058, bz + bd / 2 + 0.002, 0.18, 0.038, 4, 1, 'z');
-  vb.box(bx + 0.075, by + 0.028, bz + bd / 2 + 0.003, 0.028, 0.055, 0.006, C.timber);
-  vb.cyl(bx - 0.085, by + 0.128, bz, 0.008, 0.030, C.brickDark, 6);
+  const by = PH;
+  vb.box(bx, by + 0.042, bz, bw, 0.084, bd, C.brick, { jitter: 0.06 });
+  vb.box(bx, by + 0.087, bz, bw + 0.012, 0.006, bd + 0.012, C.roofSlate);
+  vb.gable(bx, by + 0.090, bz, bw + 0.012, 0.030, bd + 0.012, C.roofSlate);
+  windowGrid(vb, lit, bx, by + 0.052, bz + bd / 2 + 0.002, 0.18, 0.032, 4, 1, 'z');
+  vb.box(bx + 0.075, by + 0.024, bz + bd / 2 + 0.003, 0.024, 0.048, 0.006, C.timber);
+  vb.cyl(bx - 0.085, by + 0.112, bz, 0.007, 0.028, C.brickDark, 6);
 
-  // canopy over the platform on slim posts (clear of the loading gauge)
-  vb.box(bx + 0.03, by + 0.080, S.z1 - 0.038, 0.40, 0.005, 0.060, C.roofSlate);
-  for (const px of [bx - 0.15, bx + 0.03, bx + 0.20]) {
-    vb.cyl(px, by + 0.040, S.z1 - 0.030, 0.0035, 0.080, C.steelDark, 6);
+  // canopy over the platform, on slim posts clear of the loading gauge
+  vb.box(bx + 0.03, by + 0.046, S.z1 - 0.036, 0.36, 0.004, 0.052, C.roofSlate);
+  vb.box(bx + 0.03, by + 0.043, S.z1 - 0.011, 0.36, 0.006, 0.004, C.roofSlate); // valance
+  for (const px of [bx - 0.14, bx + 0.03, bx + 0.19]) {
+    vb.cyl(px, by + 0.022, S.z1 - 0.030, 0.0028, 0.044, C.steelDark, 6);
   }
-  // benches, lamps, a name board
-  for (const px of [-0.10, -0.03, 0.04]) {
-    vb.box(px, 0.050, S.z1 - 0.052, 0.038, 0.005, 0.014, C.timber);
-    vb.box(px, 0.046, S.z1 - 0.058, 0.038, 0.014, 0.004, C.timber);
+  // benches, a barrow and a name board
+  for (const px of [-0.12, -0.05, 0.02]) {
+    vb.box(px, PH + 0.007, S.z1 - 0.048, 0.030, 0.003, 0.009, C.timber);
+    vb.box(px, PH + 0.005, S.z1 - 0.052, 0.030, 0.009, 0.003, C.timber);
   }
-  // luggage and a name board
-  vb.box(0.00, 0.052, S.z0 + 0.030, 0.022, 0.018, 0.014, 0x6f4a3a, { jitter: 0.1 });
-  vb.box(-0.20, 0.060, S.z0 + 0.020, 0.070, 0.016, 0.004, C.plaster);
-  reg('building', 'station', S.x0, S.x1, S.z0, S.z1, 0, 0.25);
-  return { lampSpots: [[-0.20, S.z1 - 0.03], [0.10, S.z1 - 0.03]] };
+  vb.box(-0.30, PH + 0.008, S.z0 + 0.026, 0.026, 0.016, 0.012, 0x6f4a3a, { jitter: 0.1 });
+  vb.box(-0.20, PH + 0.020, S.z0 + 0.016, 0.055, 0.011, 0.003, C.plaster);
+  for (const px of [-0.225, -0.175]) vb.cyl(px, PH + 0.008, S.z0 + 0.016, 0.0022, 0.016, C.steelDark, 5);
+
+  reg('building', 'station', S.x0, S.x1, S.z0, S.z1, 0, 0.16);
+  return { lampSpots: [] };
 }
 
 function engineShed(vb, lit) {
