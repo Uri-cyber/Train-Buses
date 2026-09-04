@@ -38,8 +38,11 @@ export function buildRoom(vb, lit) {
   // window on the left wall, with a frame and a warm sill
   const wy = FLOOR + 1.10, wz = -0.75;
   vb.box(-x - 0.01, wy, wz, 0.05, 1.02, 1.34, C.windowFrm);
+  // Daylight glazing: this belongs in the solid mesh, not the emissive one.
+  // The emissive pass is driven to near-black by day, which is right for the
+  // layout's building windows and exactly wrong for a window onto the sky.
   for (const oz of [-0.33, 0.33]) {
-    lit.box(-x + 0.02, wy, wz + oz, 0.012, 0.90, 0.56, 0xdfeeff, { jitter: 0.02 });
+    vb.box(-x + 0.02, wy, wz + oz, 0.012, 0.90, 0.56, 0xeaf4ff, { jitter: 0.02 });
   }
   vb.box(-x + 0.06, wy - 0.53, wz, 0.14, 0.04, 1.30, C.skirting);
   // mullions

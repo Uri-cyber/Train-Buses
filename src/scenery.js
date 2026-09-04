@@ -56,8 +56,12 @@ function hill(vb, track) {
       if (dTrack < BORE_R) {
         // carve the bore: keep only the rock above the loading gauge
         if (h <= BORE_H) continue;
+        // rock over the bore keeps the hillside's own colouring, so the tunnel
+        // does not read as a stone path cut across the summit
+        const cc = h > 0.185 ? (R() < 0.45 ? C.rock : C.rockDark)
+          : R() < 0.28 ? C.grassDark : R() < 0.55 ? C.grass : C.grassLight;
         vb.box(px, BORE_H + (h - BORE_H) / 2, pz, step * 1.05, h - BORE_H, step * 1.05,
-          R() < 0.3 ? C.rock : C.rockDark, { jitter: 0.12 });
+          cc, { jitter: 0.12 });
         continue;
       }
       const c = h > 0.185 ? (R() < 0.45 ? C.rock : C.rockDark)
