@@ -180,6 +180,9 @@ export function attachInteraction(renderer, camera, desk, state, onPress) {
   const ndc = new THREE.Vector2();
   let dragging = null, dragStartY = 0, dragStartValue = 0;
   const el = renderer.domElement;
+  // The idle camera drift must not slide the desk out from under the pointer,
+  // so the camera reads these while the desk is being used.
+  desk.pointer = { hover: false, dragging: false };
 
   const setNdc = (e) => {
     const r = el.getBoundingClientRect();
@@ -196,6 +199,7 @@ export function attachInteraction(renderer, camera, desk, state, onPress) {
     const button = hit.object.userData.button;
     if (lever) {
       dragging = lever; dragStartY = e.clientY; dragStartValue = lever.value;
+      desk.pointer.dragging = true;
       el.setPointerCapture(e.pointerId);
       el.style.cursor = 'grabbing';
     } else if (button) {
@@ -213,12 +217,14 @@ export function attachInteraction(renderer, camera, desk, state, onPress) {
     }
     setNdc(e);
     ray.setFromCamera(ndc, camera);
-    el.style.cursor = ray.intersectObjects(desk.interactive, false).length ? 'grab' : 'default';
+    const over = ray.intersectObjects(desk.interactive, false).length > 0;
+    desk.pointer.hover = over;
+    el.style.cursor = over ? 'grab' : 'default';
   });
 
   const end = (e) => {
     if (dragging) { try { el.releasePointerCapture(e.pointerId); } catch { /* ignore */ } }
-    dragging = null; el.style.cursor = 'default';
+    dragging = null; desk.pointer.dragging = false; el.style.cursor = 'default';
   };
   el.addEventListener('pointerup', end);
   el.addEventListener('pointercancel', end);

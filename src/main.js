@@ -126,9 +126,13 @@ attachInteraction(renderer, camera, desk, state, (id, on) => {
 
 /* ----------------------------------------------------------------- camera */
 
+// A gentle head-turn as the pointer moves, but frozen whenever the desk is
+// under the pointer: otherwise the controls slide away as you reach for them.
 let yaw = 0, pitch = 0;
 addEventListener('pointermove', (e) => {
   if (e.buttons) return;
+  if (desk.pointer?.hover || desk.pointer?.dragging) return;
+  if (e.clientY > innerHeight * 0.70) return;      // lower third is the desk
   yaw = ((e.clientX / innerWidth) - 0.5) * 0.30;
   pitch = ((e.clientY / innerHeight) - 0.5) * 0.14;
 });

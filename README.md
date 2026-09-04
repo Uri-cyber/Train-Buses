@@ -27,6 +27,7 @@ Other scripts:
 | `SINGLE=1 npm run build` | one self-contained `dist-single/index.html` |
 | `npm run check` | automated clearance check (see below) |
 | `npm run shots` | headless screenshots + console capture from a running preview |
+| `npm run test:controls` | clicks and drags every desk control in headless Chromium |
 
 ## The controls
 
@@ -94,6 +95,11 @@ footprint every object registered while it was placed, and asserts eight rules:
 
 It runs in CI before every deploy, so a change that makes two things intersect
 fails the build rather than shipping.
+
+`npm run test:controls` is the companion check for the desk: against a running
+preview it works out where each control is on screen, clicks the five button
+caps and drags both levers with real pointer events, and asserts that the state
+flipped, the indicator changed and the lever physically moved.
 
 ## Performance
 
