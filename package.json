@@ -1,14 +1,17 @@
 {
-  "name": "voxel-model-railway",
-  "version": "1.0.0",
+  "name": "israel-by-rail",
+  "version": "2.0.0",
   "private": false,
   "type": "module",
+  "description": "A stylised 3D Israel with the real railway network, seen from above.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview --port 4173",
+    "preview": "vite preview --port 4173 --host 127.0.0.1",
+    "data": "node scripts/fetch-natural-earth.mjs && node scripts/build-network.mjs",
+    "fetch:osm": "node scripts/fetch-osm.mjs && node scripts/build-network.mjs",
+    "check": "node scripts/rails-check.mjs",
     "shots": "node scripts/screenshot.mjs",
-    "check": "node scripts/overlap-check.mjs",
     "test:controls": "node scripts/interaction-test.mjs"
   },
   "dependencies": { "three": "^0.169.0" },

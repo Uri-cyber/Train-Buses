@@ -1,34 +1,45 @@
 <!doctype html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Voxel Model Railway</title>
+<title>ישראל ברכבת / Israel by Rail</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #0d1424; overflow: hidden; }
+  html, body { margin: 0; height: 100%; background: #0b1a2e; overflow: hidden; }
   #view { display: block; width: 100vw; height: 100vh; }
   #hud {
-    position: fixed; left: 14px; top: 12px; z-index: 5;
-    font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace;
-    color: #e6ded0; text-shadow: 0 1px 3px #000a; pointer-events: none;
-    background: #0008; padding: 8px 11px; border-radius: 7px; max-width: 260px;
+    position: fixed; right: 16px; top: 14px; z-index: 5; max-width: 300px;
+    font: 13px/1.55 system-ui, "Segoe UI", Arial, sans-serif; color: #f3ede2;
+    background: rgba(8, 20, 38, 0.62); padding: 10px 13px; border-radius: 10px;
+    backdrop-filter: blur(6px); pointer-events: none; text-align: right;
   }
-  #hud b { color: #ffd08a; }
+  #hud b { color: #ffd27a; }
+  #hud .en { direction: ltr; text-align: left; color: #cfe3ff; font-size: 12px; margin-top: 6px; }
   #loading {
-    position: fixed; inset: 0; display: grid; place-items: center;
-    color: #cbb; font: 14px ui-monospace, monospace; background: #0d1424;
+    position: fixed; inset: 0; display: grid; place-items: center; z-index: 10;
+    background: #0b1a2e; color: #f3ede2; font: 16px system-ui, "Segoe UI", Arial, sans-serif;
+  }
+  #loading small { display: block; margin-top: 8px; color: #9db8d8; }
+  #credit {
+    position: fixed; left: 12px; bottom: 8px; z-index: 5; direction: ltr;
+    font: 11px system-ui, "Segoe UI", Arial, sans-serif; color: #9db8d8; opacity: 0.8;
+    pointer-events: none;
   }
 </style>
 </head>
 <body>
   <canvas id="view"></canvas>
   <div id="hud">
-    <b>Voxel Model Railway</b><br />
-    Drag the two levers on the desk for <b>speed</b> and <b>time of day</b>.<br />
-    Click the five buttons: lights, auto sun, turntable, traffic, whistle.<br />
-    Keys: &uarr;/&darr; speed &nbsp; &larr;/&rarr; time &nbsp; 1&ndash;5 buttons.
+    <b>ישראל ברכבת</b><br />
+    גררו לסובב, גלגלת להתקרב, לחיצה על תחנה מציגה את שמה.<br />
+    בשולחן הבקרה: ידיות <b>מהירות</b> ו<b>שעה</b>, וחמישה כפתורים.
+    <div class="en">
+      Drag to orbit, wheel to zoom, click a station for its name.<br />
+      Desk: <b>SPEED</b> and <b>TIME</b> levers, five buttons. Keys: &uarr;&darr; speed, &larr;&rarr; time, 1&ndash;5 buttons, Q quality, R reset view.
+    </div>
   </div>
-  <div id="loading">building the layout…</div>
+  <div id="credit">Map data: Natural Earth (public domain). Rail geometry is approximate until the OpenStreetMap fetch is run.</div>
+  <div id="loading"><div>בונים את ישראל…<small>building Israel</small></div></div>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
