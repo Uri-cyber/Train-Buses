@@ -1,0 +1,19 @@
+{
+  "name": "voxel-model-railway",
+  "version": "1.0.0",
+  "private": false,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "shots": "node scripts/screenshot.mjs",
+    "check": "node scripts/overlap-check.mjs"
+  },
+  "dependencies": { "three": "^0.169.0" },
+  "devDependencies": {
+    "vite": "^5.4.10",
+    "vite-plugin-singlefile": "^2.0.3",
+    "playwright": "^1.48.0"
+  }
+}
