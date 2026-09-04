@@ -12,15 +12,15 @@ import { TRACK } from './rails.js';
 const MAJOR = new Set(['tel-aviv-savidor', 'tel-aviv-hashalom', 'tel-aviv-hahagana', 'haifa-center', 'haifa-hof-hacarmel',
   'jerusalem-navon', 'beersheba-center', 'ben-gurion-airport', 'nahariya', 'ashkelon', 'modiin-center', 'herzliya', 'netanya', 'lod', 'binyamina']);
 
-export function labelTexture(he, en, { w = 512, h = 160, big = false } = {}) {
+export function labelTexture(he, en, { w = 512, h = 160, big = false, plate = 'rgba(17, 45, 96, 0.92)', border = '#d0342c', sub = '#dbe7ff' } = {}) {
   const cv = document.createElement('canvas');
   cv.width = w; cv.height = h;
   const g = cv.getContext('2d');
   // plate
   const r = 26;
-  g.fillStyle = 'rgba(17, 45, 96, 0.92)';
+  g.fillStyle = plate;
   g.beginPath(); g.roundRect(6, 6, w - 12, h - 12, r); g.fill();
-  g.strokeStyle = '#d0342c'; g.lineWidth = 8;
+  g.strokeStyle = border; g.lineWidth = 8;
   g.beginPath(); g.roundRect(6, 6, w - 12, h - 12, r); g.stroke();
   // text
   g.fillStyle = '#ffffff';
@@ -30,7 +30,7 @@ export function labelTexture(he, en, { w = 512, h = 160, big = false } = {}) {
   g.fillText(he, w / 2, h * 0.36);
   g.direction = 'ltr';
   g.font = `${big ? 34 : 30}px "Segoe UI", Arial, "DejaVu Sans", sans-serif`;
-  g.fillStyle = '#dbe7ff';
+  g.fillStyle = sub;
   g.fillText(en, w / 2, h * 0.74);
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace;
@@ -65,7 +65,7 @@ export function createStations(network, rails, terrain) {
 
     // build in local space: track runs along +z, then rotate into place
     const b = new Builder(s.id.length * 7);
-    const off = TRACK.gauge + 0.42;
+    const off = TRACK.gauge + 0.36;
     const L = major ? 2.0 : 1.5;
     for (const side of [-1, 1]) {
       b.up(side * off, 0.0, 0, 0.42, 0.07, L, C.platform, { jitter: 0.03 });

@@ -14,8 +14,9 @@ import { TRACK } from './rails.js';
  * from the air; in local space +z is forward and y = 0 is the railhead.
  */
 
-const W = 0.62;                    // body width
+const W = 0.62;                    // body width (before SCALE)
 const cols = C.container;
+const SCALE = 0.72;               // vehicles are built at unit scale, then shrunk
 
 const CATALOGUE = {
   irLoco: { len: 2.2, build(b, g) {
@@ -129,6 +130,7 @@ export function createTrains(rails, terrain) {
     const b = new Builder(name.length * 31), g = new Builder(7);
     spec.build(b, g);
     const solidGeo = b.build(), glowGeo = g.build();
+    solidGeo.scale(SCALE, SCALE, SCALE); if (glowGeo) glowGeo.scale(SCALE, SCALE, SCALE);
     const solid = new THREE.InstancedMesh(solidGeo, stdMat({ roughness: 0.6, metalness: 0.08 }), n);
     solid.castShadow = true; solid.receiveShadow = true; solid.name = `train-${name}`;
     solid.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -140,7 +142,7 @@ export function createTrains(rails, terrain) {
       glow.name = `train-${name}-glow`;
       group.add(glow);
     }
-    types[name] = { solid, glow, next: 0, len: spec.len };
+    types[name] = { solid, glow, next: 0, len: spec.len * SCALE };
   }
 
   const trains = plans.map((p) => {

@@ -13,7 +13,7 @@ import { paint, stdMat, setInstance } from './builder.js';
  * Sizes are exaggerated ~300x so the track reads from the air.
  */
 export const TRACK = {
-  gauge: 0.24, ballastHalf: 0.50, railW: 0.075, railH: 0.06,
+  gauge: 0.175, ballastHalf: 0.40, railW: 0.06, railH: 0.05,
   sleeperEvery: 0.55, lift: 0.035, step: 0.25, smoothKm: 2.6,
   bridgeAbove: 0.16, tunnelBelow: 0.16,
 };
@@ -112,7 +112,7 @@ export function createRails(network, terrain) {
   group.add(track);
 
   // sleepers: one instanced box
-  const sleeperGeo = paint(new THREE.BoxGeometry(TRACK.gauge * 2 + 0.34, 0.025, 0.14).toNonIndexed(), C.sleeper, 0.08);
+  const sleeperGeo = paint(new THREE.BoxGeometry(TRACK.gauge * 2 + 0.26, 0.02, 0.11).toNonIndexed(), C.sleeper, 0.08);
   const sleeperMesh = new THREE.InstancedMesh(sleeperGeo, stdMat({ roughness: 0.95 }), sleepers.length);
   sleepers.forEach(([x, y, z, rot], i) => setInstance(sleeperMesh, i, x, y, z, rot));
   sleeperMesh.instanceMatrix.needsUpdate = true;
