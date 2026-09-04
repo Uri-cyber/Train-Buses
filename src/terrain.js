@@ -121,7 +121,7 @@ export function createTerrain(world, opts = {}) {
     if (country === 0) {
       // sea: shelve from the beach down to a deep floor
       m = -15 - 900 * smooth(dLand / 10);
-      colour = mixHex(C.seaShallow, C.seaFloor, smooth(dLand / 6));
+      colour = mixHex(C.seaShallow, 0x0a2e48, smooth(dLand / 6));
     } else if (lake) {
       const name = world.lakes[lake - 1]?.name_en || '';
       const level = LAKE_LEVEL[name] ?? 0;
@@ -145,7 +145,7 @@ export function createTerrain(world, opts = {}) {
       if (dIsr > FADE0) {
         const f = smooth((dIsr - FADE0) / (FADE1 - FADE0));
         m = m * (1 - f) + (-400) * f;
-        colour = mixHex(colour, C.seaFloor, smooth(f * 1.6));
+        colour = mixHex(colour, 0x0a2e48, smooth(f * 1.6));
       }
     }
     heights[i] = m;

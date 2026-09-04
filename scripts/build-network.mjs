@@ -75,7 +75,7 @@ function attach(p, maxKm, filter) {
 function israelRuns(pts) {
   const runs = []; let cur = [];
   for (const p of pts) {
-    if (mask.nearIsrael(p[0], p[1], 2)) cur.push(p);
+    if (mask.nearIsrael(p[0], p[1], 2) && mask.isLand(p[0], p[1])) cur.push(p);
     else if (cur.length) { runs.push(cur); cur = []; }
   }
   if (cur.length) runs.push(cur);

@@ -146,7 +146,7 @@ document.getElementById('loading')?.remove();
 
 /* ----------------------------------------------- hooks for the QA scripts */
 window.__app = {
-  ...app,
+  ...app, THREE,
   setHour: (h) => { state.autoSun = false; state.hour = h; },
   setView: (pos, target) => cam.setView(pos, target),
   fly: (x, z, dist) => cam.focus(x, z, dist),

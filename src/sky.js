@@ -52,7 +52,7 @@ const SkyShader = {
   uniforms: {
     top: { value: new THREE.Color(C.zenithDay) },
     horizon: { value: new THREE.Color(C.horizonDay) },
-    ground: { value: new THREE.Color(0x0c3d5e) },
+    ground: { value: new THREE.Color(0x0a2e48) },
     sunDir: { value: new THREE.Vector3(0, 1, 0) },
     sunColor: { value: new THREE.Color(C.sun) },
     sunUp: { value: 1 },
@@ -148,7 +148,7 @@ export function createSky(scene) {
       u.horizon.value.setHex(mixHex(mixHex(C.horizonNight, C.horizonDusk, dusk), C.horizonDay, day));
       u.sunDir.value.copy(sunDir);
       u.sunUp.value = clamp01((el + 0.02) * 12);
-      u.ground.value.setHex(mixHex(0x08172a, 0x0c3d5e, day));
+      u.ground.value.setHex(mixHex(0x06131f, 0x0a2e48, day));
       u.sunColor.value.setHex(mixHex(0xff8a3c, C.sun, clamp01(el * 2.5)));
       stars.material.opacity = clamp01((-el - 0.03) * 8) * 0.9;
       scene.fog.color.copy(u.horizon.value);

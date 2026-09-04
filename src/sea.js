@@ -58,9 +58,7 @@ export function createSea(world, terrain) {
   outer.holes.push(hole);
   const og = new THREE.ShapeGeometry(outer, 1);
   og.rotateX(-Math.PI / 2);
-  const outerSea = new THREE.Mesh(og, material(C.seaDeep, 1.0));
-  outerSea.material.transparent = false;
-  outerSea.material.depthWrite = true;
+  const outerSea = new THREE.Mesh(og, material(C.seaDeep, 0.86));
   outerSea.renderOrder = 1;
   outerSea.name = 'outer-sea';
   group.add(outerSea);

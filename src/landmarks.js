@@ -65,7 +65,7 @@ export function createLandmarks(world, terrain, occupancy, network) {
   /* --------------------------------------------------------------- Haifa */
   {
     // the port: a quay built out into the bay from the shore east of the centre
-    const q = at(32.8300, 35.0090, 0.4);
+    const q = at(32.8470, 35.0180, 0.2);                   // out in the bay, off the Kishon
     q.y = 0;
     const qa = -0.55;                                         // quay runs along the bay shore, WNW-ESE
     b.box(q.x, 0.03, q.z, 2.4, 0.06, 0.7, C.concrete, { rotY: qa });
@@ -82,20 +82,20 @@ export function createLandmarks(world, terrain, occupancy, network) {
     b.box(sh.x, 0.27, sh.z, 0.56, 0.08, 2.5, 0xd9d3c6, { rotY: qa + Math.PI / 2 });
     b.up(sh.x + Math.sin(qa + Math.PI / 2) * 1.0, 0.31, sh.z + Math.cos(qa + Math.PI / 2) * 1.0, 0.45, 0.4, 0.3, 0xf1eee6, { rotY: qa + Math.PI / 2 });
     for (let i = 0; i < 6; i++) { const t = -0.9 + i * 0.3; b.up(sh.x + Math.sin(qa + Math.PI / 2) * t, 0.31, sh.z + Math.cos(qa + Math.PI / 2) * t, 0.45, 0.24, 0.26, C.container[(i * 3) % 5], { rotY: qa + Math.PI / 2 }); }
-    mark('נמל חיפה', 'Haifa Port', q, 1.6);
-    const d = at(32.8195, 34.9993, 0.5);                     // Dagon silo
+    mark('נמל חיפה', 'Haifa Port', q, 0.9);
+    const d = at(32.8195, 34.9993, 0.95);                    // Dagon silo
     b.up(d.x, d.y, d.z, 1.1, 1.5, 0.5, 0xe6dcc6); b.dome(d.x - 0.3, d.y + 1.5, d.z, 0.25, 0xe6dcc6, 10, { scaleY: 0.5 }); b.dome(d.x + 0.3, d.y + 1.5, d.z, 0.25, 0xe6dcc6, 10, { scaleY: 0.5 });
     b.up(d.x, d.y + 1.5, d.z, 0.3, 0.4, 0.3, 0xd9cfb8);
-    mark('ממגורות דגון', 'Dagon Silo', d, 0.8);
-    const bh = at(32.8116, 34.9874, 0.4);                    // Bahai gardens up the Carmel
+    mark('ממגורות דגון', 'Dagon Silo', d, 0.55);
+    const bh = at(32.8116, 34.9874, 1.1);                    // Bahai gardens up the Carmel
     for (let t = 0; t < 9; t++) { const y = bh.y + t * 0.22; b.up(bh.x, y, bh.z + 0.6 + t * 0.32, 1.4 - t * 0.06, 0.22, 0.34, t % 2 ? 0x5a9a4a : 0x6faa55, { jitter: 0.03 }); b.up(bh.x, y + 0.22, bh.z + 0.6 + t * 0.32, 0.12, 0.01, 0.34, 0xf1e9d0); }
     b.cyl(bh.x, bh.y + 1.98 + 0.25, bh.z + 0.6 + 4 * 0.32, 0.34, 0.5, 0xf1eee6, 12); b.dome(bh.x, bh.y + 1.98 + 0.5, bh.z + 0.6 + 4 * 0.32, 0.34, 0xd4a83a, 14);
-    mark('הגנים הבהאיים', "Bahai Gardens", bh, 1.4);
+    mark('הגנים הבהאיים', "Bahai Gardens", bh, 0.7);
   }
 
   /* ----------------------------------------------------------- Jerusalem */
   {
-    const o = at(31.7775, 35.2310, 0.9);                     // Old City walls
+    const o = at(31.7775, 35.2310, 1.55);                    // Old City walls
     const w = 1.1;
     for (const [dx, dz, ww, dd] of [[0, -w, 2 * w, 0.1], [0, w, 2 * w, 0.1], [-w, 0, 0.1, 2 * w], [w, 0, 0.1, 2 * w]]) b.up(o.x + dx, o.y, o.z + dz, ww, 0.42, dd, C.stoneWall, { jitter: 0.05 });
     for (const [dx, dz] of [[-w, -w], [w, -w], [-w, w], [w, w], [0, -w], [0, w]]) b.up(o.x + dx, o.y, o.z + dz, 0.22, 0.6, 0.22, C.stoneDark);
@@ -103,12 +103,12 @@ export function createLandmarks(world, terrain, occupancy, network) {
     b.cyl(o.x + 0.45, o.y + 0.25, o.z + 0.35, 0.36, 0.5, 0x86a8c8, 8);          // the platform's octagon
     b.dome(o.x + 0.45, o.y + 0.5, o.z + 0.35, 0.36, 0xd4a83a, 16);               // gold dome
     b.up(o.x - 0.7, o.y, o.z - 0.6, 0.18, 0.9, 0.18, C.stoneDark);              // Tower of David
-    mark('העיר העתיקה', 'Old City of Jerusalem', o, 1.6);
-    const c = at(31.7890, 35.1990, 0.5);                     // Chords Bridge
+    mark('העיר העתיקה', 'Old City of Jerusalem', o, 1.15);
+    const c = at(31.7890, 35.1990, 0.85);                    // Chords Bridge
     b.up(c.x, c.y, c.z, 0.12, 2.4, 0.12, 0xf4f4f0, { rotZ: 0.45 });
     b.box(c.x + 0.6, c.y + 0.3, c.z, 2.4, 0.08, 0.34, 0xe8e8e2);
     for (let i = 0; i < 8; i++) b.box(c.x - 0.15 + i * 0.16, c.y + 1.2 - i * 0.1, c.z, 0.012, 1.7 - i * 0.15, 0.012, 0xffffff, { rotZ: 0.6 + i * 0.05 });
-    mark('גשר המיתרים', 'Chords Bridge', c, 1.2);
+    mark('גשר המיתרים', 'Chords Bridge', c, 0.45);
     flag(o.x - w - 0.4, o.y, o.z - w - 0.4);
   }
 
@@ -156,22 +156,22 @@ export function createLandmarks(world, terrain, occupancy, network) {
       b.cyl(p.x, p.y + 0.55, p.z, 0.13, 0.26, C.concrete, 12);
       mark(`מגדל המים ${he}`, `${en} water tower`, p, 0.3);
     }
-    const ap = at(32.0055, 34.8854, 0.8);                    // Ben Gurion airport
+    const ap = at(32.0055, 34.8854, 1.3);                    // Ben Gurion airport
     b.box(ap.x, ap.y + 0.015, ap.z, 0.35, 0.03, 4.0, 0x6c7178, { rotY: 0.2 });
     b.box(ap.x + 0.6, ap.y + 0.015, ap.z + 0.3, 0.35, 0.03, 3.2, 0x6c7178, { rotY: -0.6 });
     b.up(ap.x - 0.8, ap.y, ap.z - 0.3, 1.4, 0.22, 0.5, 0xf1eee6); b.up(ap.x - 0.8, ap.y + 0.22, ap.z - 0.3, 1.5, 0.05, 0.6, 0x8f959c);
     b.box(ap.x - 0.6, ap.y + 0.12, ap.z + 0.5, 0.12, 0.12, 0.9, 0xffffff); b.box(ap.x - 0.6, ap.y + 0.12, ap.z + 0.5, 0.9, 0.03, 0.12, 0xffffff); b.box(ap.x - 0.6, ap.y + 0.22, ap.z + 0.9, 0.03, 0.2, 0.15, 0x1d4f9c);
-    mark('נמל התעופה בן גוריון', 'Ben Gurion Airport', ap, 2.2);
+    mark('נמל התעופה בן גוריון', 'Ben Gurion Airport', ap, 0.9);
     flag(ap.x - 1.6, ap.y, ap.z - 0.6);
   }
 
   /* ------------------------------------------------ Haifa East railway museum turntable */
-  const tt = at(32.8107, 35.0105, 0.7);
+  const tt = at(32.8107, 35.0105, 1.15);
   b.cyl(tt.x, tt.y + 0.02, tt.z, 0.62, 0.05, 0x9d9789, 24);
   b.cyl(tt.x, tt.y + 0.04, tt.z, 0.55, 0.03, 0x4a4d52, 24);
   b.up(tt.x + 0.8, tt.y, tt.z, 0.6, 0.35, 0.9, C.stoneWall);                    // museum shed
   b.gable(tt.x + 0.8, tt.y + 0.35, tt.z, 0.66, 0.16, 0.95, C.roofTile);
-  mark('מוזיאון הרכבת', 'Israel Railway Museum', tt, 1.2);
+  mark('מוזיאון הרכבת', 'Israel Railway Museum', tt, 0.75);
   const turntable = new THREE.Group();
   turntable.position.set(tt.x, tt.y + 0.06, tt.z);
   const deckB = new Builder(3);
