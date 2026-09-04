@@ -91,11 +91,14 @@ export function createLoop(w) {
     // ---- sun / sky
     const sky = updateSun(lights, scene, state.hour);
     const dark = 1 - sky.day;
-    lights.lamp.intensity = (state.lights ? 1 : dark) * 0.85 * (state.lights ? 1 : dark);
+    // the room's pendant lamp comes on with the lights button, or by itself
+    // once the sun is properly down
+    const roomLit = state.lights ? 1 : Math.max(0, (dark - 0.55) * 2.2);
+    lights.lamp.intensity = Math.min(1, roomLit) * 1.15;
 
     // Emissive panes carry their own colour in the vertex data, so the shared
     // material only has to ride from ~black (off) to white (fully lit).
-    const glow = Math.max(state.lights ? 0.9 : 0, Math.min(1, (dark - 0.35) * 2.0));
+    const glow = Math.max(state.lights ? 0.9 : 0, Math.min(1, (dark - 0.42) * 2.2));
     const g = 0.05 + glow * 0.95;
     for (const m of world.windowMats) m.color.setRGB(g, g, g);
 

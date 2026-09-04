@@ -10,7 +10,7 @@ export function createRenderer(canvas) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 1.15;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   return renderer;
 }
@@ -66,28 +66,32 @@ const _a = new THREE.Color(), _b = new THREE.Color();
  * so other systems (window lights, street lamps) can react to it.
  */
 export function updateSun(lights, scene, hour) {
-  const theta = ((hour - 6) / 12) * Math.PI;      // 0 at 06:00, PI at 18:00
+  const theta = ((hour - 6) / 12) * Math.PI;       // 0 at 06:00, PI at 18:00
   const R = 6.5;
-  const el = Math.sin(theta);
+  const el = Math.sin(theta);                       // true elevation, drives colour
   const up = Math.max(el, 0);
-  const day = Math.max(0, Math.min(1, el * 2.6));  // 0 at horizon, 1 well up
-  const dawnish = Math.max(0, 1 - Math.abs(el) * 5); // peaks at the horizon
+  // The sun's *height* is lifted off the horizon so that dawn and dusk still
+  // light the modelled faces; the east-to-west swing does the storytelling.
+  const lift = 0.24 + 0.76 * Math.pow(up, 0.85);
+  const day = Math.max(0, Math.min(1, (el + 0.05) * 2.8));
+  const dawnish = Math.max(0, 1 - Math.abs(el) * 3.2); // peaks at the horizon
 
   const { sun, hemi, fill } = lights;
-  sun.position.set(-Math.cos(theta) * R, Math.max(el * R, -1.2), 0.30 * R);
+  sun.position.set(-Math.cos(theta) * R, lift * R, 0.30 * R);
 
   if (el > -0.02) {
-    sun.intensity = 0.35 + up * 2.1;
-    _a.setHex(0xff9a4d).lerp(_b.setHex(0xfff3d6), Math.min(1, up * 2.2));
+    // a low sun is still strong, just redder: keeps golden hour bright
+    sun.intensity = 0.85 + Math.pow(up, 0.6) * 1.75;
+    _a.setHex(0xff8b3c).lerp(_b.setHex(0xfff3d6), Math.min(1, up * 2.4));
     sun.color.copy(_a);
   } else {
     // moonlight
-    sun.position.set(Math.cos(theta) * R, Math.max(-el * R, 0.9), 0.30 * R);
+    sun.position.set(Math.cos(theta) * R, (0.30 + 0.70 * -el) * R, 0.30 * R);
     sun.intensity = 0.22;
     sun.color.setHex(0x9db8e0);
   }
 
-  hemi.intensity = 0.10 + day * 0.78;
+  hemi.intensity = 0.12 + day * 0.80;
   hemi.color.setHex(0x0f1a30).lerp(_b.setHex(0xbcd8ff), day);
   fill.intensity = 0.07 + day * 0.30;
 
