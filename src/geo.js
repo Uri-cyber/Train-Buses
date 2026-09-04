@@ -77,7 +77,7 @@ export function makeMask(world) {
     }
     return best;
   };
-  return { w, h, cell, ids, lake, P, cellOf, country, lakeId, isLand, isIsrael, nearIsrael, seaDistance };
+  return { w, h, cell, ids, lake, P, bbox, israelId: mask.israelId, cellOf, country, lakeId, isLand, isIsrael, nearIsrael, seaDistance };
 }
 
 /* ------------------------------------------------------------ polylines */
@@ -147,4 +147,47 @@ export function makePathLookup(pts) {
       return { x: a[0] + (b[0] - a[0]) * t, z: a[1] + (b[1] - a[1]) * t, tx, tz };
     },
   };
+}
+
+/**
+ * Chamfer distance transform over the mask grid: distance in km from every
+ * cell to the nearest cell where `pred(cellIndex)` is true. Two passes, O(n).
+ */
+export function distanceTransform(mask, pred) {
+  const { w, h, cell } = mask;
+  const km = cell * 111;                          // one cell edge, roughly, in km
+  const D = new Float32Array(w * h).fill(1e9);
+  for (let i = 0; i < w * h; i++) if (pred(i)) D[i] = 0;
+  const d1 = 1, d2 = Math.SQRT2;
+  for (let j = 0; j < h; j++) {
+    for (let i = 0; i < w; i++) {
+      const k = j * w + i;
+      if (i > 0) D[k] = Math.min(D[k], D[k - 1] + d1);
+      if (j > 0) { D[k] = Math.min(D[k], D[k - w] + d1);
+        if (i > 0) D[k] = Math.min(D[k], D[k - w - 1] + d2);
+        if (i < w - 1) D[k] = Math.min(D[k], D[k - w + 1] + d2); }
+    }
+  }
+  for (let j = h - 1; j >= 0; j--) {
+    for (let i = w - 1; i >= 0; i--) {
+      const k = j * w + i;
+      if (i < w - 1) D[k] = Math.min(D[k], D[k + 1] + d1);
+      if (j < h - 1) { D[k] = Math.min(D[k], D[k + w] + d1);
+        if (i < w - 1) D[k] = Math.min(D[k], D[k + w + 1] + d2);
+        if (i > 0) D[k] = Math.min(D[k], D[k + w - 1] + d2); }
+    }
+  }
+  for (let i = 0; i < D.length; i++) D[i] *= km;
+  return D;
+}
+
+/** Bilinear sample of a mask-grid field at world (x, z). */
+export function sampleField(mask, field, x, z) {
+  const { w, h, cell } = mask;
+  const [lon, lat] = mask.P.toLonLat(x, z);
+  const fi = (lon - mask.bbox.lon0) / cell - 0.5, fj = (mask.bbox.lat1 - lat) / cell - 0.5;
+  const i0 = Math.max(0, Math.min(w - 2, Math.floor(fi))), j0 = Math.max(0, Math.min(h - 2, Math.floor(fj)));
+  const tx = Math.max(0, Math.min(1, fi - i0)), tz = Math.max(0, Math.min(1, fj - j0));
+  const a = field[j0 * w + i0], b = field[j0 * w + i0 + 1], c = field[(j0 + 1) * w + i0], d = field[(j0 + 1) * w + i0 + 1];
+  return (a * (1 - tx) + b * tx) * (1 - tz) + (c * (1 - tx) + d * tx) * tz;
 }
