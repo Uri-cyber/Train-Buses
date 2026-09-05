@@ -1,17 +1,19 @@
 # ישראל ברכבת · Israel by Rail
 
-A stylised 3D Israel seen from the air, carrying the real railway network,
-with Israel Railways trains, a heritage steam train and freight running on it.
-The sun is where it really is: the page opens at Israel's current time.
+A cartoon 3D Israel seen from the air, carrying the real railway network with
+toy-sized trains on it: Israel Railways double-deckers, the Valley Railway's
+steam train and potash and container freights. It runs on its own: when
+nobody touches the mouse the camera rides from train to train. The sun is
+where it really is: the page opens at Israel's current time.
 
 Everything you see is generated in code. There are no downloaded models,
 textures, fonts or sounds. The one thing that is not invented is the map:
 coastline, lakes, rails, stations, roads and cities come from real data, and
 the rails and stations are fetched live from OpenStreetMap when the page opens.
 
-![Haifa: the bay, the port, the Bahai terraces and the Dagon silo](docs/haifa.png)
+![The tour riding beside the steam train at Haifa](docs/tour.png)
 
-![The centre of the country at night](docs/night.png)
+![Haifa: the bay, the port, the Bahai terraces and the Dagon silo](docs/haifa.png)
 
 ## Running it
 
@@ -31,13 +33,20 @@ npm run dev          # http://localhost:5173
 | `npm run shots` | headless screenshots and console capture from a running preview |
 | `npm run test:controls` | click and drag every desk control in headless Chromium |
 
+The screenshots include a tour view, which waits for the camera to settle
+beside a train; under software rendering that can take a minute.
+
 `check`, `test:live`, `shots` and `test:controls` need `npm run preview` running
 in another window. Each accepts a page URL as its first argument.
 
 ## Using it
 
-Drag to orbit, wheel to zoom, right-drag to pan. Click a station to see its
-name in Hebrew and English and fly closer. Gold plates mark landmarks.
+Leave it alone and it tours: the camera flies to a train, rides beside it
+for half a minute, then glides to the next one. Touch the mouse and the
+camera is yours; after 45 quiet seconds the tour picks up again. Drag to
+orbit, wheel to zoom, right-drag to pan. Click a station to see its name in
+Hebrew and English and fly closer. Gold plates mark landmarks; blue, brown
+and grey plates over the trains name the route and the next stop.
 
 The desk at the bottom of the screen:
 
@@ -48,8 +57,9 @@ The desk at the bottom of the screen:
 - **סובב קטרים · TURNTABLE**: turns the turntable at the railway museum in Haifa East
 - **תנועה · TRAFFIC**: road traffic on or off
 - **צפירה · WHISTLE**: the nearest train sounds its horn (steam whistle for the heritage train)
+- **סיור · TOUR**: the auto tour on or off (`?tour=off` in the address opens without it)
 
-Keys: `↑`/`↓` speed, `←`/`→` time, `1` to `5` the buttons, `Q` render quality, `R` home view.
+Keys: `↑`/`↓` speed, `←`/`→` time, `1` to `6` the buttons, `Q` render quality, `R` home view.
 
 ## The live network
 
@@ -108,23 +118,35 @@ Map data (c) OpenStreetMap contributors, ODbL.
 - **Sea and lakes**: one sheet at sea level over ocean cells, shaded by depth;
   the Kinneret at -210 m and the Dead Sea at -430 m.
 - **Sun**: the true solar position for Israel's clock (`Asia/Jerusalem`).
-- **Rails**: every graph edge drawn once, draped on the terrain with a smoothed
-  profile; tunnel portals and piers appear where the profile leaves the ground.
-- **Trains**: one `InstancedMesh` per vehicle type; two-pivot placement keeps
-  long cars on the curve; trains brake for stations and turn round at the ends.
+- **Rails**: every graph edge drawn once as double track, draped on the terrain
+  with a smoothed profile; tunnel portals and piers appear where the profile
+  leaves the ground.
+- **Trains**: toys about 250x life size, squat along the line so they fit
+  between stations; one `InstancedMesh` per vehicle type; two-pivot placement
+  keeps cars on the curve. Each direction runs on its own track (left-hand,
+  as Israel Railways does), a headway rule keeps a follower off the train
+  ahead whatever route it is on, trains brake for stations and turn round at
+  the ends. Locomotives puff smoke, headlights come on at night, and a plate
+  over the front names the route and the next stop.
+- **The tour**: a small state machine (fly, follow, hand over, resume) that
+  picks the next train by distance, preferring a different family and one not
+  visited lately, and chases it from behind and above with a slow sway.
 - **Cities, trees, landmarks**: instanced blocks and trees placed through a
   spatial hash seeded with rails, roads and water; landmarks built from
   primitives at their real coordinates.
-- **Look**: one shadow-casting sun whose frustum follows the camera, ambient
-  occlusion, bloom, a tilt-shift blur and a vignette.
+- **Look**: flat-shaded toon materials with three lighting steps, ground
+  colours snapped to a few bold bands, an ink outline pass over the toys
+  (normals and depth of the outlined layer, Sobel, faded with distance), one
+  shadow-casting sun whose frustum follows the camera, bloom, a tilt-shift
+  blur and a vignette.
 
 ## Nothing may clip
 
 `npm run check` runs two sets of rules. On the data: every station sits on a
 line, every route is connected end to end and lies on Israel's land. In the
 live scene (headless Chromium): every train car sits on its route's railhead;
-no building, tree or landmark stands on a rail or a road; nothing is placed in
-the water; every station has its plate. `npm run test:live` runs the same
+no building, tree or landmark stands in the double-track corridor or on a
+road; nothing is placed in the water; every station has its plate. `npm run test:live` runs the same
 rules on a network that went through the OpenStreetMap loader. Both run in CI
 before every deploy.
 
