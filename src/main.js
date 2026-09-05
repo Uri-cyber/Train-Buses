@@ -84,7 +84,7 @@ built = buildNetworkObjects(network);
 const state = {
   hour: israelClock().hour,      // Israel wall clock
   autoSun: true,                 // follow the real clock
-  speed: 0.5,
+  speed: 0.6,
   lights: false, turntable: true, traffic: true, whistle: false,
   tour: params.get('tour') !== 'off',             // the camera rides the trains on its own
 };

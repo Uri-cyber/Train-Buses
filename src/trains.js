@@ -321,7 +321,7 @@ export function createTrains(rails, terrain, stationsById = null) {
           if (remaining - step < 0.03) {
             // arrived: dwell, and turn round at the ends of the line
             const atEnd = t.d <= t.total * 0.55 + 0.05 || t.d >= t.route.length - t.total * 0.55 - 0.05;
-            t.dwell = atEnd ? 5 : 2.5;
+            t.dwell = atEnd ? 3.5 : 1.5;
             if (atEnd) t.dir = t.d <= t.route.length / 2 ? 1 : -1;
           }
         }

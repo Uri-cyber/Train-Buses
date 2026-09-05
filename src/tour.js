@@ -8,9 +8,10 @@ import { HOME } from './camera.js';
  * spell the tour picks up again. The TOUR button on the desk (key 6) turns
  * it off altogether.
  */
-const FOLLOW_S = 30;      // seconds riding with one train
-const RESUME_S = 45;      // seconds of quiet before the tour resumes
-const BACK = 14, UP = 6, SWAY = 8;   // chase camera: km behind, above and beside the train
+const FOLLOW_S = 32;      // seconds riding with one train
+const RESUME_S = 20;      // seconds of quiet before the tour resumes
+const RADIUS = 11, UP = 4.5;         // chase camera: km from the train and above it
+const ORBIT = 0.11;       // rad/s: the camera circles the train slowly, so it is always on the move
 
 export function createTour({ cam, getTrains, terrain, state, hint }) {
   let mode = 'user';      // user | flight | follow
@@ -23,10 +24,12 @@ export function createTour({ cam, getTrains, terrain, state, hint }) {
     const T = t.head, len = t.total;
     const mx = T.x - T.tx * len * 0.5, mz = T.z - T.tz * len * 0.5;       // middle of the train
     const my = Math.max(T.y, terrain.heightAt(mx, mz)) + 0.6;
-    const lx = T.tz, lz = -T.tx;                                         // beside the line
-    const sway = Math.sin(phase) * SWAY;
+    // circle the train: start behind it, drift round, breathe in and out
+    const heading = Math.atan2(T.tx, T.tz);
+    const a = heading + Math.PI + phase;
+    const r = RADIUS + Math.sin(phase * 0.37) * 3;
     _target.set(mx, my, mz);
-    _pos.set(mx - T.tx * BACK + lx * sway, my + UP, mz - T.tz * BACK + lz * sway);
+    _pos.set(mx + Math.sin(a) * r, my + UP + Math.sin(phase * 0.23) * 1.2, mz + Math.cos(a) * r);
     return { pos: _pos, target: _target };
   };
 
@@ -95,7 +98,7 @@ export function createTour({ cam, getTrains, terrain, state, hint }) {
       }
       const t = getTrains().find((x) => x.id === followId);
       if (!t) { startLeg(); return; }
-      followT += dt; phase += dt * 0.08;
+      followT += dt; phase += dt * ORBIT;
       const { pos, target } = chasePoint(t);
       cam.chase(pos, target, dt);
       if (followT > FOLLOW_S) startLeg();
