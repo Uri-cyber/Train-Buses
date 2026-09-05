@@ -27,6 +27,14 @@
     pointer-events: none; display: flex; flex-direction: column; gap: 2px;
   }
   #status span[dir="ltr"] { color: #9db8d8; font-size: 11px; }
+  #tour {
+    position: fixed; left: 16px; top: 14px; z-index: 5; direction: rtl;
+    font: 13px/1.5 system-ui, "Segoe UI", Arial, sans-serif; color: #f3ede2;
+    background: rgba(8, 20, 38, 0.62); padding: 8px 12px; border-radius: 10px; backdrop-filter: blur(6px);
+    pointer-events: none; text-align: right;
+  }
+  #tour b { color: #c7a2ff; }
+  #tour .en { direction: ltr; text-align: left; color: #cfe3ff; font-size: 12px; }
   #credit {
     position: fixed; left: 12px; bottom: 8px; z-index: 5; direction: ltr;
     font: 11px system-ui, "Segoe UI", Arial, sans-serif; color: #9db8d8; opacity: 0.8;
@@ -39,13 +47,15 @@
   <div id="hud">
     <b>ישראל ברכבת</b><br />
     גררו לסובב, גלגלת להתקרב, לחיצה על תחנה מציגה את שמה.<br />
-    בשולחן הבקרה: ידיות <b>מהירות</b> ו<b>שעה</b>, וחמישה כפתורים.
+    בשולחן הבקרה: ידיות <b>מהירות</b> ו<b>שעה</b>, ושישה כפתורים. כפתור <b>סיור</b>: המצלמה עוברת בעצמה מרכבת לרכבת.
     <div class="en">
       Drag to orbit, wheel to zoom, click a station for its name.<br />
-      Desk: <b>SPEED</b> and <b>TIME</b> levers, five buttons. Keys: &uarr;&darr; speed, &larr;&rarr; time, 1&ndash;5 buttons, Q quality, R reset view.
+      Desk: <b>SPEED</b> and <b>TIME</b> levers, six buttons. <b>TOUR</b> lets the camera ride from train to train on its own.<br />
+      Keys: &uarr;&darr; speed, &larr;&rarr; time, 1&ndash;6 buttons, Q quality, R reset view.
     </div>
   </div>
   <div id="status"></div>
+  <div id="tour" hidden><b>סיור אוטומטי</b> · הזיזו את העכבר כדי לקחת את המצלמה<div class="en">Auto tour · move the mouse to take the camera</div></div>
   <div id="credit">Map: Natural Earth (public domain). Rails and stations: OpenStreetMap contributors (ODbL) when reachable.</div>
   <div id="loading"><div>בונים את ישראל…<small>building Israel</small></div></div>
   <script type="module" src="/src/main.js"></script>

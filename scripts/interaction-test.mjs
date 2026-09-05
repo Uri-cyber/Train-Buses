@@ -16,6 +16,7 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 await page.goto(URL, { waitUntil: 'load' });
 await page.waitForFunction(() => !!window.__app);
+await page.evaluate(() => window.__app.tour.set(false));      // the auto tour would move the camera under us
 if (/[?&]osm=/.test(URL)) await page.waitForFunction(() => window.__app.liveStatus?.applied || window.__app.liveStatus?.failed || window.__app.liveStatus?.thin, null, { timeout: 180000 });
 await page.waitForTimeout(1500);
 

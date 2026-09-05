@@ -19,7 +19,7 @@ export function createCamera(renderer, terrain) {
   controls.screenSpacePanning = false;
   controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
 
-  let fly = null;      // { from, to, targetFrom, targetTo, t, dur }
+  let fly = null;      // { from, to, targetFrom, targetTo, t, dur, getter? }
   const api = {
     camera, controls, free: false,
     distance: () => camera.position.distanceTo(controls.target),
@@ -34,8 +34,20 @@ export function createCamera(renderer, terrain) {
       if (dir.y < 0.35) { dir.y = 0.55; dir.normalize(); }
       api.flyTo(new THREE.Vector3(x, y, z), dir.multiplyScalar(dist), 1.6);
     },
+    /** fly to a moving endpoint: getter() returns { pos, target } and is read every frame */
+    flyToward(getter, dur = 4) {
+      fly = { from: camera.position.clone(), to: new THREE.Vector3(), targetFrom: controls.target.clone(), targetTo: new THREE.Vector3(), t: 0, dur, getter };
+    },
+    /** ease the camera after something that moves (the tour) */
+    chase(pos, target, dt, k = 1.8) {
+      const a = 1 - Math.exp(-dt * k);
+      camera.position.lerp(pos, a);
+      controls.target.lerp(target, a);
+    },
     reset() { api.flyTo(HOME.target, HOME.offset, 2.4); },
     cancelFlight() { fly = null; },
+    flying: () => !!fly,
+    flight: () => (fly ? { t: fly.t, dur: fly.dur } : null),
     /** jump instantly (used by the screenshot harness) */
     setView(pos, target) {
       fly = null;
@@ -51,10 +63,16 @@ export function createCamera(renderer, terrain) {
       if (fly) {
         fly.t = Math.min(1, fly.t + dt / fly.dur);
         const e = fly.t < 0.5 ? 4 * fly.t ** 3 : 1 - Math.pow(-2 * fly.t + 2, 3) / 2;   // ease in-out
+        if (fly.getter) { const end = fly.getter(); fly.to.copy(end.pos); fly.targetTo.copy(end.target); }
         camera.position.lerpVectors(fly.from, fly.to, e);
         controls.target.lerpVectors(fly.targetFrom, fly.targetTo, e);
+        // loft over the country between two low viewpoints
+        if (fly.getter) camera.position.y += Math.sin(e * Math.PI) * Math.min(60, fly.from.distanceTo(fly.to) * 0.35);
         if (fly.t >= 1) fly = null;
       }
+      // never under the hills
+      const eye = terrain.heightAt(camera.position.x, camera.position.z) + 1.0;
+      if (camera.position.y < eye) camera.position.y = eye;
       // keep the orbit centre on the ground, never under it
       const ground = terrain.heightAt(controls.target.x, controls.target.z);
       if (controls.target.y < ground) controls.target.y = ground;

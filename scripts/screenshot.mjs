@@ -23,6 +23,7 @@ const VIEWS = [
   ['07-eilat',     14.0, [-20, 18, 290],    [-5, 0.3, 272]],
   ['08-night',     22.0, [-74, 250, 318],   [-14, 0.4, 18]],
   ['09-dawn',      6.3,  [-74, 250, 318],   [-14, 0.4, 18]],
+  ['10-tour',      9.5,  null, null],          // the auto tour riding a train
 ];
 
 const browser = await chromium.launch({ executablePath: EXE,
@@ -44,7 +45,13 @@ try {
 await page.waitForTimeout(800);
 
 for (const [name, hour, pos, target] of VIEWS) {
-  await page.evaluate(([h, p, t]) => { window.__app.setHour(h); window.__app.setView(p, t); }, [hour, pos, target]);
+  if (pos) await page.evaluate(([h, p, t]) => { window.__app.setHour(h); window.__app.setView(p, t); }, [hour, pos, target]);
+  else {
+    // let the tour fly to a train and settle beside it (slow under software rendering)
+    await page.evaluate((h) => { window.__app.setHour(h); window.__app.tour.set(true); }, hour);
+    await page.waitForFunction(() => window.__app.tour.mode === 'follow', null, { timeout: 120000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+  }
   await page.waitForTimeout(1200);
   await page.screenshot({ path: `${OUT}/${name}.png` });
 }

@@ -20,6 +20,7 @@ import { createVegetation } from './vegetation.js';
 import { createCities } from './cities.js';
 import { createLandmarks } from './landmarks.js';
 import { createHud } from './hud.js';
+import { createTour } from './tour.js';
 import { makeProjection } from './geo.js';
 
 const canvas = document.getElementById('view');
@@ -80,13 +81,16 @@ const state = {
   autoSun: true,                 // follow the real clock
   speed: 0.5,
   lights: false, turntable: true, traffic: true, whistle: false,
+  tour: new URLSearchParams(location.search).get('tour') !== 'off',   // the camera rides the trains on its own
 };
+const tour = createTour({ cam, getTrains: () => built.trains.trains, terrain, state, hint: document.getElementById('tour') });
 
 const hud = createHud(renderer, state, {
   controls: cam.controls,
   onPress: (id, on) => {
     if (id === 'whistle') { const t = built.trains.nearestTo(cam.controls.target); (t && t.kind === 'heritage' ? whistle : horn)(); }
     if (id === 'autoSun' && on) state.hour = israelClock().hour;
+    if (id === 'tour') tour.set(on);
   },
 });
 
@@ -96,7 +100,7 @@ addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (k === 'q') post.setQuality(QUALITIES[(QUALITIES.indexOf(post.quality) + 1) % QUALITIES.length]);
   if (k === 'r') cam.reset();
-  const idx = ['1', '2', '3', '4', '5'].indexOf(e.key);
+  const idx = ['1', '2', '3', '4', '5', '6'].indexOf(e.key);
   if (idx >= 0) hud.press(hud.buttons[idx].spec.id);
   if (e.key === 'ArrowUp') state.speed = Math.min(1, state.speed + 0.1);
   if (e.key === 'ArrowDown') state.speed = Math.max(0, state.speed - 0.1);
@@ -133,7 +137,7 @@ const clock = new THREE.Clock();
 let frames = 0, fpsT = 0;
 renderer.info.autoReset = false;
 const app = {
-  scene, camera: cam.camera, renderer, state, cam, terrain, sky, lights, post, world, traffic, hud, fps: 0,
+  scene, camera: cam.camera, renderer, state, cam, terrain, sky, lights, post, world, traffic, hud, tour, fps: 0,
   liveStatus: { source: 'bundled', applied: false },
   get network() { return network; },
   get rails() { return built.rails; }, get stations() { return built.stations; }, get trains() { return built.trains; },
@@ -144,14 +148,15 @@ function frame() {
   renderer.info.reset();
   const dt = Math.min(clock.getDelta(), 0.1);
   if (state.autoSun) state.hour = israelClock().hour;
-  cam.update(dt);
   const skyState = sky.update(state.hour, dt, cam.camera.position);
+  built.trains.update(dt, state.speed, 1 - skyState.day, state.lights, cam.controls.target, tour.trainId, cam.distance());
+  traffic.update(dt, state.traffic, 1 - skyState.day, state.lights);
+  tour.update(dt);                 // after the trains moved, before the camera settles
+  cam.update(dt);
   const dist = cam.distance();
   lights.update(skyState, cam.controls.target, dist);
   sea.update(clock.elapsedTime);
   built.stations.update(cam.camera, dt);
-  built.trains.update(dt, state.speed, 1 - skyState.day, state.lights, cam.controls.target, null, dist);
-  traffic.update(dt, state.traffic, 1 - skyState.day, state.lights);
   built.cities.update(1 - skyState.day, state.lights);
   built.landmarks.update(dt, cam.camera, state.turntable, 1 - skyState.day, state.lights);
   post.setNight(1 - skyState.day, skyState.dusk);
@@ -166,7 +171,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 
-cam.intro();
+tour.begin();
 frame();
 document.getElementById('loading')?.remove();
 

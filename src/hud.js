@@ -4,7 +4,7 @@ import { C } from './palette.js';
 
 /**
  * The control console: a 3D desk rendered in its own overlay scene, pinned to
- * the bottom of the screen. Two levers (speed, time of day) and five latching
+ * the bottom of the screen. Two levers (speed, time of day) and six latching
  * buttons with indicator lamps, labelled in Hebrew and English, plus a clock
  * showing Israel's time. Pointer events are handled here first; the map's
  * orbit controls only see what the desk does not take.
@@ -19,8 +19,9 @@ export const BUTTONS = [
   { id: 'turntable', he: 'סובב קטרים',   en: 'TURNTABLE', x: 0.20,  on: 0x53b6ff },
   { id: 'traffic',   he: 'תנועה',        en: 'TRAFFIC',   x: 0.33,  on: 0xff8a4d },
   { id: 'whistle',   he: 'צפירה',        en: 'WHISTLE',   x: 0.46,  on: 0xff5f5f },
+  { id: 'tour',      he: 'סיור',         en: 'TOUR',      x: 0.59,  on: 0xc7a2ff },
 ];
-const PANEL_W = 1.26, PANEL_D = 0.19;
+const PANEL_W = 1.40, PANEL_D = 0.19;
 const FONT_HE = '"Segoe UI", Arial, "Noto Sans Hebrew", "DejaVu Sans", sans-serif';
 
 function panelTexture() {
@@ -46,8 +47,8 @@ function panelTexture() {
   for (const c of LEVERS) label(c, 190, 214);
   g.strokeStyle = '#5c6f8f'; g.lineWidth = 2;
   for (const l of LEVERS) { const u = toU(l.x); for (let i = 0; i <= 6; i++) { const y = 56 + i * 17; g.beginPath(); g.moveTo(u - 46, y); g.lineTo(u - 34, y); g.stroke(); } }
-  g.fillStyle = '#6f83a6'; g.font = '12px "Segoe UI", Arial, sans-serif'; g.textAlign = 'right'; g.direction = 'ltr';
-  g.fillText('Asia/Jerusalem', cv.width - 30, 216);
+  g.fillStyle = '#6f83a6'; g.font = '12px "Segoe UI", Arial, sans-serif'; g.textAlign = 'center'; g.direction = 'ltr';
+  g.fillText('Asia/Jerusalem', toU(-0.59), 216);
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
   return t;
@@ -135,7 +136,7 @@ export function createHud(renderer, state, { onPress, controls } = {}) {
   // clock
   const clock = clockCanvas();
   const clockMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.19, 0.07), new THREE.MeshBasicMaterial({ map: clock.t, toneMapped: false }));
-  clockMesh.rotation.x = -Math.PI / 2; clockMesh.position.set(0.545, 0.004, 0.02);
+  clockMesh.rotation.x = -Math.PI / 2; clockMesh.position.set(-0.59, 0.004, 0.02);
   desk.add(clockMesh);
 
   /* ------------------------------------------------------- interaction */
