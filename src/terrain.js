@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GRADIENT } from './builder.js';
 import { makeMask, makeProjection, distanceTransform, sampleField } from './geo.js';
 import { C, mixHex, smooth, clamp01 } from './palette.js';
 import { noise2, fbm, groundNormal } from './textures.js';
@@ -151,18 +152,14 @@ export function createTerrain(world, opts = {}) {
     heights[i] = m;
     pos.setY(i, yOf(m));
     tint.setHex(colour);
-    const k = fbm(noise, lon * 90, lat * 90, 2) * 0.16 + 0.92;   // fine tonal grain
-    col[i * 3] = tint.r * k; col[i * 3 + 1] = tint.g * k; col[i * 3 + 2] = tint.b * k;
+    col[i * 3] = tint.r; col[i * 3 + 1] = tint.g; col[i * 3 + 2] = tint.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   geo.computeVertexNormals();
 
-  const normalMap = groundNormal();
-  normalMap.repeat.set(W / 2.8, D / 2.8);
-  const mat = new THREE.MeshStandardMaterial({
-    vertexColors: true, roughness: 0.94, metalness: 0.0,
-    normalMap, normalScale: new THREE.Vector2(0.32, 0.32),
-  });
+  // flat facets and three lighting steps: a cartoon relief map
+  const mat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRADIENT });
+  mat.flatShading = true;
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true; mesh.castShadow = true;
   mesh.name = 'terrain';
@@ -211,5 +208,20 @@ function biomeColour(lon, lat, m, dWater, israel) {
   const patch = fbm(noise, lon * 55 + 7, lat * 55, 2);
   c = mixHex(c, C.fields, (patch > 0.6 ? 0.55 : 0) * centre * (1 - east));
   if (!israel) c = mixHex(c, C.abroad, 0.55);
-  return c;
+  return snapBand(c);
+}
+
+/* the cartoon map has hard-edged colour bands: every ground colour snaps to the nearest swatch */
+const LAND_BANDS = ['plain', 'fields', 'sharon', 'galilee', 'forest', 'golan', 'olive', 'judea', 'stone', 'shephelah',
+  'judeanDesert', 'negev', 'negevSouth', 'ramon', 'arava', 'eilat', 'sand', 'abroad'].map((k) => C[k]);
+const _bandRgb = LAND_BANDS.map((h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255]);
+function snapBand(hex) {
+  const r = (hex >> 16) & 255, g = (hex >> 8) & 255, b = hex & 255;
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < _bandRgb.length; i++) {
+    const [br, bg, bb] = _bandRgb[i];
+    const d = (r - br) ** 2 + (g - bg) ** 2 + (b - bb) ** 2;
+    if (d < bd) { bd = d; best = i; }
+  }
+  return LAND_BANDS[best];
 }

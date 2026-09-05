@@ -94,7 +94,19 @@ export function paint(g, color, jitter = 0.04, r = Math.random) {
   return g;
 }
 
-export const stdMat = (extra = {}) => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.02, ...extra });
+/** three flat lighting steps: the cartoon look. Shared by every toon material and never disposed. */
+export const GRADIENT = (() => {
+  const t = new THREE.DataTexture(new Uint8Array([95, 95, 95, 255, 175, 175, 175, 255, 255, 255, 255, 255]), 3, 1, THREE.RGBAFormat);
+  t.minFilter = t.magFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true;
+  return t;
+})();
+/** flat-shaded toon material with baked vertex colours (roughness/metalness extras are ignored) */
+export const stdMat = (extra = {}) => {
+  const { roughness, metalness, ...rest } = extra;
+  const m = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRADIENT, ...rest });
+  m.flatShading = true;
+  return m;
+};
 /** unlit, for things that glow at night (window panes, lamps, LEDs) */
 export const glowMat = (extra = {}) => new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false, ...extra });
 

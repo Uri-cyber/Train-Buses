@@ -4,15 +4,15 @@
  */
 export const C = {
   // water
-  seaDeep: 0x0d4a70, seaMid: 0x1d7e9f, seaShallow: 0x52c1cf, foam: 0xeaf7f8,
+  seaDeep: 0x0c4d7a, seaMid: 0x1d86ad, seaShallow: 0x5fd6dc, foam: 0xf4fbfb,
   kinneret: 0x2f8ab0, deadSea: 0x3a9bb6, redSea: 0x1b93a8,
 
   // land, north to south
-  sand: 0xead9ab, dune: 0xe2cf9c,
-  plain: 0x9cb85a, fields: 0xb8c66c, sharon: 0x8db354, carmel: 0x5f8f44,
-  galilee: 0x6c9c4a, forest: 0x3f7442, golan: 0x707c48, olive: 0x8f9c60,
+  sand: 0xf3dfa0, dune: 0xe2cf9c,
+  plain: 0x8fc44a, fields: 0xc2d15a, sharon: 0x7fbb3f, carmel: 0x5f8f44,
+  galilee: 0x5ea63e, forest: 0x2f7a3c, golan: 0x707c48, olive: 0x8f9c60,
   hills: 0xb9aa7a, stone: 0xd9cdb0, shephelah: 0xc6ba8b, judea: 0x9aa068,
-  judeanDesert: 0xdbbb8c, negev: 0xdec59a, negevSouth: 0xd1a878, ramon: 0xb8825a,
+  judeanDesert: 0xe0bd85, negev: 0xe9c98a, negevSouth: 0xd1a878, ramon: 0xb8825a,
   arava: 0xe7d2a2, eilat: 0xb45f3e, sinai: 0xd9b98b, jordan: 0xcdb48c, lebanon: 0x8fa564,
   seaFloor: 0x0a3a56, lakeFloor: 0x1a4f5e,
   abroad: 0xd6cbb2,           // neighbours are drawn paler so Israel reads

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { makeProjection, sampleField } from './geo.js';
 import { yOf, LAKE_LEVEL } from './terrain.js';
 import { C, mixHex, smooth } from './palette.js';
-import { waterNormal } from './textures.js';
+import { GRADIENT } from './builder.js';
 
 /**
  * Water: the Mediterranean and the Gulf of Eilat as one sheet at sea level,
@@ -12,15 +12,12 @@ import { waterNormal } from './textures.js';
 export function createSea(world, terrain) {
   const group = new THREE.Group();
   group.name = 'sea';
-  const normalMap = waterNormal();
-  normalMap.repeat.set(26, 70);                     // ~6 km tiles: no visible grid from the air
   const P = makeProjection(world.proj);
 
-  const material = (colour, opacity) => new THREE.MeshPhysicalMaterial({
-    ...(colour === undefined ? { vertexColors: true } : { color: colour }), roughness: 0.22, metalness: 0.0,
-    normalMap, normalScale: new THREE.Vector2(0.16, 0.16),
-    clearcoat: 0.7, clearcoatRoughness: 0.12, transparent: true, opacity,
-    envMapIntensity: 1.1, depthWrite: false,
+  // flat cartoon water: a few colour steps by depth and a foam line at the shore
+  const material = (colour, opacity) => new THREE.MeshToonMaterial({
+    ...(colour === undefined ? { vertexColors: true } : { color: colour }), gradientMap: GRADIENT,
+    transparent: false, opacity: 1,
   });
 
   // open sea: the sheet sits at sea level over ocean cells only and dives
@@ -28,7 +25,7 @@ export function createSea(world, terrain) {
   const { x0, x1, zN, zS, W, D } = terrain.bounds;
   const mask = terrain.mask;
   const toOcean = terrain.toOcean;
-  const geo = new THREE.PlaneGeometry(W, D, 140, 380);
+  const geo = new THREE.PlaneGeometry(W, D, 280, 760);
   geo.rotateX(-Math.PI / 2);
   geo.translate((x0 + x1) / 2, 0, (zN + zS) / 2);
   const pos = geo.attributes.position;
@@ -42,7 +39,9 @@ export function createSea(world, terrain) {
     const floor = terrain.heightAt(x, z);            // sunk neighbours read as deep water too
     const d = sampleField(mask, terrain.toLand, x, z);
     const deep = Math.max(smooth((d - 3) / 14), smooth((-floor - 0.15) / 0.9));
-    tint.setHex(mixHex(mixHex(C.seaShallow, C.seaMid, smooth(d / 4)), C.seaDeep, deep));
+    // three steps of blue, and foam along the last kilometre before the beach
+    const band = deep > 0.5 ? C.seaDeep : d < 0.9 && dOcean < 0.5 ? C.foam : d < 4 ? C.seaShallow : C.seaMid;
+    tint.setHex(band);
     col[i * 3] = tint.r; col[i * 3 + 1] = tint.g; col[i * 3 + 2] = tint.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -82,6 +81,6 @@ export function createSea(world, terrain) {
 
   return {
     group,
-    update(t) { normalMap.offset.set(t * 0.004, -t * 0.0025); },
+    update() {},
   };
 }
