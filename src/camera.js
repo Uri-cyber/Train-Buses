@@ -6,6 +6,7 @@ export const HOME = { target: new THREE.Vector3(-14, 0.4, 18), offset: new THREE
 
 export function createCamera(renderer, terrain) {
   const camera = new THREE.PerspectiveCamera(46, innerWidth / innerHeight, 0.5, 3000);
+  camera.layers.enable(2);                          // the outline layer (post.js OUTLINE_LAYER)
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;

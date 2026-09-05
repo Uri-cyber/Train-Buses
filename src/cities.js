@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OUTLINE_LAYER } from './post.js';
 import { Builder, stdMat, glowMat, setInstance, rng } from './builder.js';
 import { C, smooth } from './palette.js';
 
@@ -97,6 +98,7 @@ export function createCities(world, network, terrain, occupancy) {
     const b = new Builder(kind.length * 29), g = new Builder(5);
     GEOM[kind](b, g);
     const solid = new THREE.InstancedMesh(b.build(), stdMat({ roughness: 0.85 }), list.length);
+    solid.layers.enable(OUTLINE_LAYER);
     list.forEach((it, i) => setInstance(solid, i, it[0], it[1], it[2], it[3], it[4], it[5], it[6]));
     solid.instanceMatrix.needsUpdate = true;
     solid.castShadow = true; solid.receiveShadow = true; solid.name = `city-${kind}`;
@@ -117,6 +119,7 @@ export function createCities(world, network, terrain, occupancy) {
     b.box(0, 0.03, 0.02, 0.09, 0.02, 0.11, C.solar, { rotX: -0.5 });
     b.cyl(0, 0.075, -0.045, 0.028, 0.09, C.heater, 8, { rotZ: Math.PI / 2 });
     const mesh = new THREE.InstancedMesh(b.build(), stdMat({ roughness: 0.5 }), heaters.length);
+    mesh.layers.enable(OUTLINE_LAYER);
     heaters.forEach((h, i) => setInstance(mesh, i, h[0], h[1], h[2], h[3]));
     mesh.instanceMatrix.needsUpdate = true; mesh.name = 'solar-heaters';
     group.add(mesh);

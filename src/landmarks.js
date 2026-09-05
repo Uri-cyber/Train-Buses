@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OUTLINE_LAYER } from './post.js';
 import { Builder, stdMat, glowMat, rng } from './builder.js';
 import { C } from './palette.js';
 import { labelTexture } from './stations.js';
@@ -180,10 +181,12 @@ export function createLandmarks(world, terrain, occupancy, network) {
   deckB.cyl(0, 0.35, 0.15, 0.16, 0.6, C.steamBlack, 10, { rotX: Math.PI / 2 });    // a loco on the deck
   deckB.box(0, 0.35, -0.3, 0.42, 0.4, 0.3, C.steamGreen); deckB.cyl(0, 0.75, 0.38, 0.05, 0.2, C.steamBlack, 8);
   turntable.add(deckB.mesh(stdMat({ roughness: 0.6 })));
+  turntable.traverse((o) => { if (o.isMesh) o.layers.enable(OUTLINE_LAYER); });
   group.add(turntable);
 
   const solid = b.mesh(stdMat({ roughness: 0.8 }));
   solid.name = 'landmarks-solid';
+  solid.layers.enable(OUTLINE_LAYER);
   group.add(solid);
   const gg = g.build();
   const glow = gg ? new THREE.Mesh(gg, glowMat()) : null;

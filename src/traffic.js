@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OUTLINE_LAYER } from './post.js';
 import { makePathLookup, polylineLength } from './geo.js';
 import { C } from './palette.js';
 import { Builder, stdMat, glowMat, setInstance, rng } from './builder.js';
@@ -109,6 +110,7 @@ export function createTraffic(world, terrain, mask) {
     const b = new Builder(k.name.length * 13), g = new Builder(3);
     k.build(b, g);
     const solid = new THREE.InstancedMesh(b.build(), stdMat({ roughness: 0.55, metalness: 0.1 }), n);
+    solid.layers.enable(OUTLINE_LAYER);
     solid.instanceMatrix.setUsage(THREE.DynamicDrawUsage); solid.castShadow = true; solid.name = `traffic-${k.name}`;
     group.add(solid);
     const gg = g.build();

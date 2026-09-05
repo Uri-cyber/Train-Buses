@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OUTLINE_LAYER } from './post.js';
 import { Builder, stdMat, setInstance, rng } from './builder.js';
 import { C, smooth } from './palette.js';
 import { noise2, fbm } from './textures.js';
@@ -66,6 +67,7 @@ export function createVegetation(world, terrain, occupancy) {
     const b = new Builder(name.length * 17);
     TREES[name](b);
     const mesh = new THREE.InstancedMesh(b.build(), stdMat({ roughness: 0.9 }), list.length);
+    mesh.layers.enable(OUTLINE_LAYER);
     list.forEach((t, i) => setInstance(mesh, i, t[0], t[1], t[2], t[3], t[4], t[4], t[4]));
     mesh.instanceMatrix.needsUpdate = true;
     mesh.castShadow = true; mesh.receiveShadow = true;

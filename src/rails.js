@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OUTLINE_LAYER } from './post.js';
 import { makePathLookup } from './geo.js';
 import { C, mixHex } from './palette.js';
 import { paint, stdMat, setInstance } from './builder.js';
@@ -138,6 +139,7 @@ export function createRails(network, terrain) {
   // piers under bridges (box from the ground to the deck, scaled per instance)
   const pierGeo = paint(new THREE.BoxGeometry(0.6, 1, 2.4).translate(0, 0.5, 0).toNonIndexed(), C.concrete, 0.06);
   const pierMesh = new THREE.InstancedMesh(pierGeo, stdMat(), Math.max(1, piers.length));
+  pierMesh.layers.enable(OUTLINE_LAYER);
   piers.forEach(([x, y, z, rot, hgt], i) => setInstance(pierMesh, i, x, y - 0.05, z, rot, 1, hgt + 0.02, 1));
   pierMesh.count = piers.length;
   pierMesh.instanceMatrix.needsUpdate = true;
@@ -148,6 +150,7 @@ export function createRails(network, terrain) {
   // tunnel portals: a stone arch face across the track
   const portalGeo = paint(new THREE.BoxGeometry(3.4, 1.3, 0.5).translate(0, 0.5, 0).toNonIndexed(), C.stoneDark, 0.08);
   const portalMesh = new THREE.InstancedMesh(portalGeo, stdMat(), Math.max(1, portals.length));
+  portalMesh.layers.enable(OUTLINE_LAYER);
   portals.forEach(([x, y, z, rot], i) => setInstance(portalMesh, i, x, y - 0.1, z, rot));
   portalMesh.count = portals.length;
   portalMesh.instanceMatrix.needsUpdate = true;

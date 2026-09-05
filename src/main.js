@@ -28,6 +28,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false;           // once per frame, not once per pass (see frame())
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -155,6 +156,7 @@ function frame() {
   built.landmarks.update(dt, cam.camera, state.turntable, 1 - skyState.day, state.lights);
   post.setNight(1 - skyState.day, skyState.dusk);
   post.setZoom(dist);
+  renderer.shadowMap.needsUpdate = true;
   post.render();
   const hh = Math.floor(state.hour), mm = Math.floor((state.hour - hh) * 60);
   hud.update(dt, `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`, state.autoSun ? 'השעה בישראל עכשיו' : 'שעה מכוונת ידנית');

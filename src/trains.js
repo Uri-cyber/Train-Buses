@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OUTLINE_LAYER } from './post.js';
 import { Builder, stdMat, glowMat, setInstance, rng } from './builder.js';
 import { C } from './palette.js';
 import { TRACK } from './rails.js';
@@ -139,6 +140,7 @@ export function createTrains(rails, terrain) {
     const solidGeo = b.build(), glowGeo = g.build();
     solidGeo.scale(SCALE, SCALE, SCALE * ZS); if (glowGeo) glowGeo.scale(SCALE, SCALE, SCALE * ZS);
     const solid = new THREE.InstancedMesh(solidGeo, stdMat({ roughness: 0.6, metalness: 0.08 }), n);
+    solid.layers.enable(OUTLINE_LAYER);
     solid.castShadow = true; solid.receiveShadow = true; solid.name = `train-${name}`;
     solid.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     group.add(solid);

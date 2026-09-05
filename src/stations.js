@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OUTLINE_LAYER } from './post.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Builder, stdMat, glowMat, paint } from './builder.js';
 import { C } from './palette.js';
@@ -122,6 +123,7 @@ export function createStations(network, rails, terrain) {
 
   if (pieces.length) {
     const m = new THREE.Mesh(mergeGeometries(pieces, false), stdMat({ roughness: 0.75 }));
+    m.layers.enable(OUTLINE_LAYER);
     m.castShadow = true; m.receiveShadow = true; m.name = 'station-buildings';
     group.add(m);
   }
