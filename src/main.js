@@ -10,7 +10,7 @@ import { createSky, israelClock } from './sky.js';
 import { createLighting } from './lighting.js';
 import { createPost } from './post.js';
 import { createCamera } from './camera.js';
-import { createRails } from './rails.js';
+import { createRails, TRACK } from './rails.js';
 import { createStations } from './stations.js';
 import { createTrains } from './trains.js';
 import { horn, whistle } from './audio.js';
@@ -170,7 +170,7 @@ document.getElementById('loading')?.remove();
 
 /* ----------------------------------------------- hooks for the QA scripts */
 window.__app = Object.assign(Object.create(app), {
-  THREE,
+  THREE, TRACK,
   setHour: (h) => { state.autoSun = false; state.hour = h; },
   setView: (pos, target) => cam.setView(pos, target),
   fly: (x, z, dist) => cam.focus(x, z, dist),

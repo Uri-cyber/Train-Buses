@@ -1,4 +1,5 @@
 import { makePathLookup } from './geo.js';
+import { TRACK } from './rails.js';
 
 /**
  * Where things already are. A coarse spatial hash seeded with the rails,
@@ -41,7 +42,7 @@ export function makeOccupancy(network, world, terrain, opts = {}) {
   const blocked = (x, z, r, filter) => hit(x, z, r, filter) !== null;
 
   // seed: rails
-  const railR = opts.railR ?? 0.8, roadR = opts.roadR ?? 0.45;
+  const railR = opts.railR ?? TRACK.corridorHalf + 0.4, roadR = opts.roadR ?? 0.45;
   for (const e of network.edges) {
     const lk = makePathLookup(e.pts);
     for (let d = 0; d <= lk.length; d += 0.3) { const p = lk.at(d); add(p.x, p.z, railR, 'rail'); }
@@ -52,9 +53,9 @@ export function makeOccupancy(network, world, terrain, opts = {}) {
     for (let d = 0; d <= lk.length; d += 0.35) { const p = lk.at(d); add(p.x, p.z, roadR, 'road'); }
   }
   // stations
-  for (const s of network.stations) add(s.x, s.z, 1.5, 'station');
+  for (const s of network.stations) add(s.x, s.z, 3.0, 'station');
 
   const mask = terrain.mask;
   const onCoreLand = (x, z) => mask.isLand(x, z) && mask.nearIsrael(x, z, 3) && terrain.heightAt(x, z) > 0.005;
-  return { add, hit, blocked, onCoreLand, items };
+  return { add, hit, blocked, onCoreLand, items, railR };
 }

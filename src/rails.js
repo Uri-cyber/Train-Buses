@@ -10,12 +10,16 @@ import { paint, stdMat, setInstance } from './builder.js';
  * the mouths) and over valleys (piers appear under the deck). Trains read the
  * same profile back, so they sit exactly on the rails.
  *
- * Sizes are exaggerated ~300x so the track reads from the air.
+ * Every line is double track (left-hand running, as Israel Railways does):
+ * one wide ballast bed with two pairs of rails. Sizes are toy scale, about
+ * 250x life, so the formation reads from the air under the toy trains.
  */
 export const TRACK = {
-  gauge: 0.175, ballastHalf: 0.40, railW: 0.06, railH: 0.05,
-  sleeperEvery: 0.55, lift: 0.035, step: 0.25, smoothKm: 2.6,
-  bridgeAbove: 0.16, tunnelBelow: 0.16,
+  gauge: 0.40, ballastHalf: 0.70, railW: 0.14, railH: 0.11,
+  sleeperEvery: 1.2, lift: 0.06, step: 0.25, smoothKm: 2.6,
+  bridgeAbove: 0.25, tunnelBelow: 0.25,
+  laneOffset: 0.70,        // each direction runs on its own track, this far from the centreline
+  corridorHalf: 1.40,      // half the width of the whole formation (laneOffset + ballastHalf)
 };
 
 export function createRails(network, terrain) {
@@ -81,10 +85,12 @@ export function createRails(network, terrain) {
     const { edge: e, pts, h, raw, d } = pr;
     const ys = Array.from(h, (v) => v + TRACK.lift);
     const cb = e.real ? cBallast : cBallastGen;
-    pushQuadStrip(pts, ys, TRACK.ballastHalf, 0, cb);
+    pushQuadStrip(pts, ys, TRACK.corridorHalf, 0, cb);
     const yr = ys.map((v) => v + TRACK.railH);
-    pushQuadStrip(pts, yr, TRACK.railW / 2, -TRACK.gauge, cRail);
-    pushQuadStrip(pts, yr, TRACK.railW / 2, TRACK.gauge, cRail);
+    for (const lane of [-TRACK.laneOffset, TRACK.laneOffset]) {
+      pushQuadStrip(pts, yr, TRACK.railW / 2, lane - TRACK.gauge, cRail);
+      pushQuadStrip(pts, yr, TRACK.railW / 2, lane + TRACK.gauge, cRail);
+    }
 
     // sleepers, bridges and tunnel mouths along the edge
     let acc = 0;
@@ -95,9 +101,9 @@ export function createRails(network, terrain) {
       const tunnel = tunnelAt(i);
       const bridge = above > TRACK.bridgeAbove;
       if (i > 0) acc += d[i] - d[i - 1];
-      if (acc >= TRACK.sleeperEvery && !tunnel) { sleepers.push([p.x, ys[i] + 0.012, p.z, Math.atan2(p.tx, p.tz)]); acc = 0; }
+      if (acc >= TRACK.sleeperEvery && !tunnel) { sleepers.push([p.x, ys[i] + 0.03, p.z, Math.atan2(p.tx, p.tz)]); acc = 0; }
       if (bridge && i % 2 === 0) piers.push([p.x, raw[i], p.z, Math.atan2(p.tx, p.tz), above + TRACK.lift]);
-      if (bridge) pushQuadStrip([pts[Math.max(0, i - 1)], p], [ys[Math.max(0, i - 1)] - 0.02, ys[i] - 0.02], TRACK.ballastHalf + 0.12, 0, cDeck);
+      if (bridge) pushQuadStrip([pts[Math.max(0, i - 1)], p], [ys[Math.max(0, i - 1)] - 0.02, ys[i] - 0.02], TRACK.corridorHalf + 0.2, 0, cDeck);
     }
     // a portal at each end of a bore that is at least a kilometre long
     const minRun = Math.round(1.0 / TRACK.step);
@@ -121,7 +127,7 @@ export function createRails(network, terrain) {
   group.add(track);
 
   // sleepers: one instanced box
-  const sleeperGeo = paint(new THREE.BoxGeometry(TRACK.gauge * 2 + 0.26, 0.02, 0.11).toNonIndexed(), C.sleeper, 0.08);
+  const sleeperGeo = paint(new THREE.BoxGeometry(TRACK.corridorHalf * 2 - 0.2, 0.05, 0.28).toNonIndexed(), C.sleeper, 0.08);
   const sleeperMesh = new THREE.InstancedMesh(sleeperGeo, stdMat({ roughness: 0.95 }), sleepers.length);
   sleepers.forEach(([x, y, z, rot], i) => setInstance(sleeperMesh, i, x, y, z, rot));
   sleeperMesh.instanceMatrix.needsUpdate = true;
@@ -130,7 +136,7 @@ export function createRails(network, terrain) {
   group.add(sleeperMesh);
 
   // piers under bridges (box from the ground to the deck, scaled per instance)
-  const pierGeo = paint(new THREE.BoxGeometry(0.26, 1, 0.9).translate(0, 0.5, 0).toNonIndexed(), C.concrete, 0.06);
+  const pierGeo = paint(new THREE.BoxGeometry(0.6, 1, 2.4).translate(0, 0.5, 0).toNonIndexed(), C.concrete, 0.06);
   const pierMesh = new THREE.InstancedMesh(pierGeo, stdMat(), Math.max(1, piers.length));
   piers.forEach(([x, y, z, rot, hgt], i) => setInstance(pierMesh, i, x, y - 0.05, z, rot, 1, hgt + 0.02, 1));
   pierMesh.count = piers.length;
@@ -140,9 +146,9 @@ export function createRails(network, terrain) {
   group.add(pierMesh);
 
   // tunnel portals: a stone arch face across the track
-  const portalGeo = paint(new THREE.BoxGeometry(1.15, 0.42, 0.22).translate(0, 0.16, 0).toNonIndexed(), C.stoneDark, 0.08);
+  const portalGeo = paint(new THREE.BoxGeometry(3.4, 1.3, 0.5).translate(0, 0.5, 0).toNonIndexed(), C.stoneDark, 0.08);
   const portalMesh = new THREE.InstancedMesh(portalGeo, stdMat(), Math.max(1, portals.length));
-  portals.forEach(([x, y, z, rot], i) => setInstance(portalMesh, i, x, y - 0.04, z, rot));
+  portals.forEach(([x, y, z, rot], i) => setInstance(portalMesh, i, x, y - 0.1, z, rot));
   portalMesh.count = portals.length;
   portalMesh.instanceMatrix.needsUpdate = true;
   portalMesh.castShadow = true;

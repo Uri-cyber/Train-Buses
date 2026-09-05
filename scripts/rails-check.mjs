@@ -82,20 +82,21 @@ if (!live) {
         const ty = a.trains.types[car.type];
         ty.solid.getMatrixAt(car.idx, m);
         v.setFromMatrixPosition(m);
-        const off = Math.hypot(v.x - p.x, v.z - p.z);
-        if (off > 0.5) out.carsOff.push(`${t.route.id} ${car.type} ${off.toFixed(2)} km off the line`);
+        // cars run on their own lane, laneOffset from the centreline
+        const off = Math.abs(Math.hypot(v.x - p.x, v.z - p.z) - a.TRACK.laneOffset * Math.abs(t.side));
+        if (off > 0.8) out.carsOff.push(`${t.route.id} ${car.type} ${off.toFixed(2)} km off the line`);
         // the car must sit on the rail profile (which itself may run through a cutting)
-        const railY = t.route.heightAt(dc) + 0.05;
-        if (Math.abs(v.y - railY) > 0.06) out.carsUnder.push(`${t.route.id} ${car.type} ${(v.y - railY).toFixed(2)} km off the railhead`);
-        back += car.len + 0.08;
+        const railY = t.route.heightAt(dc) + a.TRACK.railH;
+        if (Math.abs(v.y - railY) > 0.08) out.carsUnder.push(`${t.route.id} ${car.type} ${(v.y - railY).toFixed(2)} km off the railhead`);
+        back += car.len + 0.08 * a.trains.SCALE;
       }
     }
     // placed things keep off rails, roads and water
     for (const it of a.occupancy.items) {
       if (!['building', 'tree', 'landmark'].includes(it.kind)) continue;
       out.items++;
-      // rails are registered with a 0.8 km buffer; the real corridor is the ballast, 0.4 km each side
-      const onRail = a.occupancy.hit(it.x, it.z, Math.max(0, it.r - 0.4), (o) => o.kind === 'rail');
+      // rails are registered with a buffer beyond the formation; the real corridor is corridorHalf each side
+      const onRail = a.occupancy.hit(it.x, it.z, Math.max(0, it.r - (a.occupancy.railR - a.TRACK.corridorHalf)), (o) => o.kind === 'rail');
       if (onRail) out.onRail.push(`${it.kind} at (${it.x.toFixed(1)}, ${it.z.toFixed(1)})`);
       if (it.kind !== 'landmark') {
         const onRoad = a.occupancy.hit(it.x, it.z, Math.max(0, it.r - 0.02), (o) => o.kind === 'road');

@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Builder, stdMat, glowMat, paint } from './builder.js';
 import { C } from './palette.js';
 import { TRACK } from './rails.js';
+import { SCALE as TRAIN_SCALE } from './trains.js';
 
 /**
  * Stations: platforms either side of the line, a white barrel canopy on blue
@@ -65,34 +66,36 @@ export function createStations(network, rails, terrain) {
 
     // build in local space: track runs along +z, then rotate into place
     const b = new Builder(s.id.length * 7);
-    const off = TRACK.gauge + 0.36;
-    const L = major ? 2.0 : 1.5;
+    // platforms sit outside the toy trains on their lanes
+    const off = TRACK.laneOffset + (0.62 * TRAIN_SCALE) / 2 + 0.55;
+    const PW = 0.9;                                    // platform width
+    const L = major ? 3.0 : 2.2;
     for (const side of [-1, 1]) {
-      b.up(side * off, 0.0, 0, 0.42, 0.07, L, C.platform, { jitter: 0.03 });
-      b.up(side * (off - 0.16), 0.07, 0, 0.06, 0.008, L, 0xe9c25a);     // yellow edge line
+      b.up(side * off, 0.0, 0, PW, 0.12, L, C.platform, { jitter: 0.03 });
+      b.up(side * (off - PW / 2 + 0.1), 0.12, 0, 0.1, 0.012, L, 0xe9c25a);     // yellow edge line
       // barrel canopy from tilted slats over each platform
-      const cx = side * off, r = 0.30, y0 = 0.24;
+      const cx = side * off, r = 0.65, y0 = 0.55;
       for (let k = 0; k < 7; k++) {
         const a0 = Math.PI * (k / 7), a1 = Math.PI * ((k + 1) / 7);
         const am = (a0 + a1) / 2;
         const len = r * (a1 - a0) * 1.05;
-        b.box(cx + Math.cos(am) * r, y0 + Math.sin(am) * r, 0, len, 0.03, L * 0.86, C.irWhite, { rotZ: am - Math.PI / 2, jitter: 0.02 });
+        b.box(cx + Math.cos(am) * r, y0 + Math.sin(am) * r, 0, len, 0.05, L * 0.86, C.irWhite, { rotZ: am - Math.PI / 2, jitter: 0.02 });
       }
-      for (const zz of [-L * 0.36, 0, L * 0.36]) b.up(cx, 0.07, zz, 0.06, y0 - 0.07 + 0.02, 0.06, C.irBlue);
+      for (const zz of [-L * 0.36, 0, L * 0.36]) b.up(cx, 0.12, zz, 0.12, y0 - 0.12 + 0.03, 0.12, C.irBlue);
     }
     // station building set back on the platform's outer side
-    const bw = major ? 1.3 : 0.7, bd = major ? 0.55 : 0.35, bh = major ? 0.55 : 0.28;
-    const bx = -(off + 0.21 + bd / 2 + 0.05);
+    const bw = major ? 2.6 : 1.5, bd = major ? 1.2 : 0.8, bh = major ? 1.2 : 0.65;
+    const bx = -(off + PW / 2 + bd / 2 + 0.1);
     b.up(bx, 0.0, 0, bd, bh, bw, C.stucco, { rotY: 0, jitter: 0.03 });
-    b.up(bx, bh, 0, bd + 0.06, 0.04, bw + 0.06, C.roofFlat);
-    b.up(bx, bh + 0.04, -bw * 0.25, bd * 0.6, 0.12, bw * 0.3, C.irBlue);     // roof sign block
+    b.up(bx, bh, 0, bd + 0.1, 0.08, bw + 0.1, C.roofFlat);
+    b.up(bx, bh + 0.08, -bw * 0.25, bd * 0.6, 0.25, bw * 0.3, C.irBlue);     // roof sign block
     // glass band on the trackside face
     const gb = new Builder();
     gb.box(bx + bd / 2 + 0.005, bh * 0.55, 0, 0.01, bh * 0.45, bw * 0.9, C.windowLit, { jitter: 0.05 });
     // name post
-    b.up(off + 0.5, 0.0, L * 0.35, 0.05, 0.9, 0.05, C.irBlue);
-    b.up(off + 0.5, 0.9, L * 0.35, 0.3, 0.16, 0.05, C.irWhite);
-    b.up(off + 0.5, 0.94, L * 0.35, 0.3, 0.02, 0.055, C.irRed);
+    b.up(off + 0.8, 0.0, L * 0.35, 0.1, 1.8, 0.1, C.irBlue);
+    b.up(off + 0.8, 1.8, L * 0.35, 0.7, 0.35, 0.1, C.irWhite);
+    b.up(off + 0.8, 1.9, L * 0.35, 0.7, 0.05, 0.11, C.irRed);
 
     const place = (geo) => { geo.rotateY(rot); geo.translate(s.x, y, s.z); return geo; };
     const geo = b.build(); if (geo) pieces.push(place(geo));
@@ -102,14 +105,14 @@ export function createStations(network, rails, terrain) {
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTexture(s.he, s.en), transparent: true, depthTest: false, sizeAttenuation: false }));
     sprite.scale.set(0.125, 0.039, 1);
     sprite.center.set(0.5, -0.55);
-    sprite.position.set(s.x, y + 0.6, s.z);
+    sprite.position.set(s.x, y + 1.6, s.z);
     sprite.renderOrder = 20;
     sprite.material.opacity = 0;
     group.add(sprite);
 
     // invisible hit target for clicks
-    const hit = new THREE.Mesh(new THREE.SphereGeometry(major ? 0.9 : 0.7, 8, 6), new THREE.MeshBasicMaterial({ visible: false }));
-    hit.position.set(s.x, y + 0.2, s.z);
+    const hit = new THREE.Mesh(new THREE.SphereGeometry(major ? 1.6 : 1.2, 8, 6), new THREE.MeshBasicMaterial({ visible: false }));
+    hit.position.set(s.x, y + 0.4, s.z);
     hit.userData.stationId = s.id;
     group.add(hit);
     hits.push(hit);
