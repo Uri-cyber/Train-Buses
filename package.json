@@ -12,9 +12,13 @@
     "fetch:osm": "node scripts/fetch-osm.mjs && node scripts/build-network.mjs",
     "check": "node scripts/rails-check.mjs",
     "shots": "node scripts/screenshot.mjs",
-    "test:controls": "node scripts/interaction-test.mjs"
+    "test:controls": "node scripts/interaction-test.mjs",
+    "fixture": "node scripts/osm-fixture.mjs",
+    "test:live": "node scripts/osm-fixture.mjs && node scripts/rails-check.mjs http://127.0.0.1:4173/?osm=fixture && node scripts/interaction-test.mjs http://127.0.0.1:4173/?osm=fixture"
   },
-  "dependencies": { "three": "^0.169.0" },
+  "dependencies": {
+    "three": "^0.169.0"
+  },
   "devDependencies": {
     "vite": "^5.4.10",
     "vite-plugin-singlefile": "^2.0.3",

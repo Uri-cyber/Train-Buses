@@ -5,10 +5,10 @@
  *   npm run preview &   npm run shots
  */
 import { chromium } from 'playwright';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 
-const URL = process.env.URL || 'http://127.0.0.1:4173/';
-const EXE = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const URL = process.argv[2] || process.env.URL || 'http://127.0.0.1:4173/';
+const EXE = process.env.CHROME_PATH || ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome'].find((p) => existsSync(p)); // undefined = Playwright's own Chromium
 const OUT = 'shots';
 mkdirSync(OUT, { recursive: true });
 
@@ -36,6 +36,7 @@ page.on('requestfailed', (r) => logs.push(`[requestfailed] ${r.url()} ${r.failur
 await page.goto(URL, { waitUntil: 'load', timeout: 90000 });
 try {
   await page.waitForFunction(() => !!window.__app, null, { timeout: 120000 });
+  if (/[?&]osm=/.test(URL)) await page.waitForFunction(() => window.__app.liveStatus?.applied || window.__app.liveStatus?.failed || window.__app.liveStatus?.thin, null, { timeout: 180000 });
 } catch {
   console.log('!! app never initialised'); logs.forEach((l) => console.log(l));
   await page.screenshot({ path: `${OUT}/00-failed.png` }); await browser.close(); process.exit(1);

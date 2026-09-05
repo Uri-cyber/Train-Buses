@@ -31,12 +31,26 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Check the network data
-        run: npm run check
       - name: Build
         run: npm run build
+      - name: Chromium for the scene checks
+        run: npx playwright install --with-deps chromium
+      - name: Serve the build
+        run: |
+          npm run preview > preview.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:4173/ > /dev/null && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:4173/ > /dev/null
+      - name: Check the bundled network and the live scene
+        run: npm run check
+      - name: Check a network loaded through the OpenStreetMap path
+        run: npm run test:live
       - name: Also produce the single-file build
         run: SINGLE=1 npm run build && cp dist-single/index.html dist/standalone.html
+      - name: Remove the test fixture from the deployed site
+        run: rm -rf dist/fixtures
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

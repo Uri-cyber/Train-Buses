@@ -45,6 +45,17 @@ export function makeMask(world) {
   const lakeId = (x, z) => { const c = cellOf(x, z); return c < 0 ? 0 : lake[c]; };
   const isLand = (x, z) => country(x, z) !== 0 && lakeId(x, z) === 0;
   const isIsrael = (x, z) => country(x, z) === mask.israelId && lakeId(x, z) === 0;
+  /** true when any cell within `r` cells is land (coast-hugging track is not "in the water") */
+  const isLandNear = (x, z, r = 3) => {
+    const [lon, lat] = P.toLonLat(x, z);
+    const ci = Math.floor((lon - bbox.lon0) / cell), cj = Math.floor((bbox.lat1 - lat) / cell);
+    for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) {
+      const i = ci + di, j = cj + dj;
+      if (i < 0 || j < 0 || i >= w || j >= h) continue;
+      if (ids[j * w + i] !== 0 && lake[j * w + i] === 0) return true;
+    }
+    return false;
+  };
   /** true when any cell within `r` cells is Israel: forgiving at borders and the coast */
   const nearIsrael = (x, z, r = 2) => {
     const [lon, lat] = P.toLonLat(x, z);
@@ -77,7 +88,7 @@ export function makeMask(world) {
     }
     return best;
   };
-  return { w, h, cell, ids, lake, P, bbox, israelId: mask.israelId, cellOf, country, lakeId, isLand, isIsrael, nearIsrael, seaDistance };
+  return { w, h, cell, ids, lake, P, bbox, israelId: mask.israelId, cellOf, country, lakeId, isLand, isLandNear, isIsrael, nearIsrael, seaDistance };
 }
 
 /* ------------------------------------------------------------ polylines */

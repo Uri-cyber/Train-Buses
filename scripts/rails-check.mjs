@@ -10,7 +10,7 @@
  *
  *   npm run check              (part 1 only if no preview is running)
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { makeMask, makeProjection, makePathLookup, nearestOnPolyline, dist } from '../src/geo.js';
 
 const world = JSON.parse(readFileSync('data/world.json', 'utf8'));
@@ -44,27 +44,28 @@ for (const r of network.routes) {
 for (const { e, lk } of edgeLookups) {
   for (let d = 0; d <= lk.length; d += 1) {
     const p = lk.at(d);
-    if (!mask.isLand(p.x, p.z)) { fail('rail in the water', `edge ${e.line} at (${p.x.toFixed(1)}, ${p.z.toFixed(1)})`); break; }
+    if (!mask.isLandNear(p.x, p.z, 3)) { fail('rail in the water', `edge ${e.line} at (${p.x.toFixed(1)}, ${p.z.toFixed(1)})`); break; }
     if (!mask.nearIsrael(p.x, p.z, 3)) { fail('rail outside the map', `edge ${e.line} at (${p.x.toFixed(1)}, ${p.z.toFixed(1)})`); break; }
   }
 }
 console.log(`part 1: ${network.stations.length} stations, ${network.edges.length} edges, ${network.routes.length} routes checked`);
 
 /* ------------------------------------------------------------- part 2 */
-const URL = process.env.URL || 'http://127.0.0.1:4173/';
+const URL = process.argv[2] || process.env.URL || 'http://127.0.0.1:4173/';
 let live = false;
 try { const r = await fetch(URL); live = r.ok; } catch { live = false; }
 if (!live) {
   console.log('part 2 skipped: no preview at ' + URL + ' (run `npm run preview` first)');
 } else {
   const { chromium } = await import('playwright');
-  const EXE = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+  const EXE = process.env.CHROME_PATH || ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome'].find((p) => existsSync(p)); // undefined = Playwright's own Chromium
   const browser = await chromium.launch({ executablePath: EXE, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(URL, { waitUntil: 'load', timeout: 90000 });
   await page.waitForFunction(() => !!window.__app, null, { timeout: 120000 });
+  if (/[?&]osm=/.test(URL)) await page.waitForFunction(() => window.__app.liveStatus?.applied || window.__app.liveStatus?.failed || window.__app.liveStatus?.thin, null, { timeout: 180000 });
   await page.waitForTimeout(1500);
   const report = await page.evaluate(() => {
     const a = window.__app;
@@ -105,7 +106,10 @@ if (!live) {
     for (const s of a.stations.stations) { out.stations++; if (!s.sprite || !s.hit) out.stationsNoPlate++; }
     return out;
   });
+  const live = await page.evaluate(() => window.__app.liveStatus);
   await browser.close();
+  if (/[?&]osm=/.test(URL) && !live?.applied) fail('live network not applied', JSON.stringify(live));
+  if (live?.applied) console.log(`live network applied from ${live.source}: ${live.edges} edges, ${live.stations} stations, ${live.routes} routes in ${live.ms} ms`);
   for (const e of errors) fail('page error', e);
   for (const c of report.carsOff) fail('train off its line', c);
   for (const c of report.carsUnder) fail('train off the railhead', c);

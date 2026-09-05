@@ -4,3 +4,4 @@ dist-single/
 shots/
 .cache/
 *.log
+public/fixtures/

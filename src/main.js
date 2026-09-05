@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import world from '../data/world.json';
-import network from '../data/network.json';
+import bundledNetwork from '../data/network.json';
+import stationsData from '../data/stations.json';
+import { buildNetwork } from './network-build.js';
+import { loadLiveNetwork } from './osm.js';
 import { createTerrain } from './terrain.js';
 import { createSea } from './sea.js';
 import { createSky, israelClock } from './sky.js';
@@ -17,6 +20,7 @@ import { createVegetation } from './vegetation.js';
 import { createCities } from './cities.js';
 import { createLandmarks } from './landmarks.js';
 import { createHud } from './hud.js';
+import { makeProjection } from './geo.js';
 
 const canvas = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: true });
@@ -39,21 +43,35 @@ const sky = createSky(scene);
 const lights = createLighting(scene, renderer);
 const cam = createCamera(renderer, terrain);
 const post = createPost(renderer, scene, cam.camera);
-const rails = createRails(network, terrain);
-scene.add(rails.group);
-const stations = createStations(network, rails, terrain);
-scene.add(stations.group);
-const trains = createTrains(rails, terrain);
-scene.add(trains.group);
 const traffic = createTraffic(world, terrain, terrain.mask);
 scene.add(traffic.group);
-const occupancy = makeOccupancy(network, world, terrain);
-const cities = createCities(world, network, terrain, occupancy);
-scene.add(cities.group);
-const landmarks = createLandmarks(world, terrain, occupancy, network);
-scene.add(landmarks.group);
-const vegetation = createVegetation(world, terrain, occupancy);
-scene.add(vegetation.group);
+
+/* -------------------------- everything that depends on the rail network */
+let network = bundledNetwork;
+let built = null;
+function buildNetworkObjects(net) {
+  const rails = createRails(net, terrain);
+  const stations = createStations(net, rails, terrain);
+  const trains = createTrains(rails, terrain);
+  const occupancy = makeOccupancy(net, world, terrain);
+  const cities = createCities(world, net, terrain, occupancy);
+  const landmarks = createLandmarks(world, terrain, occupancy, net);
+  const vegetation = createVegetation(world, terrain, occupancy);
+  const groups = [rails.group, stations.group, trains.group, cities.group, landmarks.group, vegetation.group];
+  groups.forEach((g) => scene.add(g));
+  return { rails, stations, trains, occupancy, cities, landmarks, vegetation, groups };
+}
+function disposeNetworkObjects(b) {
+  for (const g of b.groups) {
+    scene.remove(g);
+    g.traverse((o) => {
+      if (o.geometry) o.geometry.dispose();
+      const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+      for (const m of mats) { if (m.map) m.map.dispose(); m.dispose(); }
+    });
+  }
+}
+built = buildNetworkObjects(network);
 
 /* ---------------------------------------------------------------- state */
 const state = {
@@ -66,7 +84,7 @@ const state = {
 const hud = createHud(renderer, state, {
   controls: cam.controls,
   onPress: (id, on) => {
-    if (id === 'whistle') { const t = trains.nearestTo(cam.controls.target); (t && t.kind === 'heritage' ? whistle : horn)(); }
+    if (id === 'whistle') { const t = built.trains.nearestTo(cam.controls.target); (t && t.kind === 'heritage' ? whistle : horn)(); }
     if (id === 'autoSun' && on) state.hour = israelClock().hour;
   },
 });
@@ -95,10 +113,10 @@ addEventListener('keydown', (e) => {
     down = null;
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, cam.camera);
-    const hit = ray.intersectObjects(stations.hits, false)[0];
+    const hit = ray.intersectObjects(built.stations.hits, false)[0];
     if (!hit) return;
-    const st = stations.byId[hit.object.userData.stationId];
-    stations.select(st.id);
+    const st = built.stations.byId[hit.object.userData.stationId];
+    built.stations.select(st.id);
     cam.focus(st.x, st.z, Math.min(cam.distance(), 14));
   });
 }
@@ -113,7 +131,13 @@ addEventListener('resize', () => {
 const clock = new THREE.Clock();
 let frames = 0, fpsT = 0;
 renderer.info.autoReset = false;
-const app = { scene, camera: cam.camera, renderer, state, cam, terrain, sky, lights, post, network, world, rails, stations, trains, traffic, cities, vegetation, occupancy, landmarks, hud, fps: 0 };
+const app = {
+  scene, camera: cam.camera, renderer, state, cam, terrain, sky, lights, post, world, traffic, hud, fps: 0,
+  liveStatus: { source: 'bundled', applied: false },
+  get network() { return network; },
+  get rails() { return built.rails; }, get stations() { return built.stations; }, get trains() { return built.trains; },
+  get cities() { return built.cities; }, get vegetation() { return built.vegetation; }, get occupancy() { return built.occupancy; }, get landmarks() { return built.landmarks; },
+};
 
 function frame() {
   renderer.info.reset();
@@ -124,11 +148,11 @@ function frame() {
   const dist = cam.distance();
   lights.update(skyState, cam.controls.target, dist);
   sea.update(clock.elapsedTime);
-  stations.update(cam.camera, dt);
-  trains.update(dt, state.speed, 1 - skyState.day, state.lights);
+  built.stations.update(cam.camera, dt);
+  built.trains.update(dt, state.speed, 1 - skyState.day, state.lights);
   traffic.update(dt, state.traffic, 1 - skyState.day, state.lights);
-  cities.update(1 - skyState.day, state.lights);
-  landmarks.update(dt, cam.camera, state.turntable, 1 - skyState.day, state.lights);
+  built.cities.update(1 - skyState.day, state.lights);
+  built.landmarks.update(dt, cam.camera, state.turntable, 1 - skyState.day, state.lights);
   post.setNight(1 - skyState.day, skyState.dusk);
   post.setZoom(dist);
   post.render();
@@ -145,12 +169,52 @@ frame();
 document.getElementById('loading')?.remove();
 
 /* ----------------------------------------------- hooks for the QA scripts */
-window.__app = {
-  ...app, THREE,
+window.__app = Object.assign(Object.create(app), {
+  THREE,
   setHour: (h) => { state.autoSun = false; state.hour = h; },
   setView: (pos, target) => cam.setView(pos, target),
   fly: (x, z, dist) => cam.focus(x, z, dist),
-  selectStation: (id) => { const s = stations.byId[id]; stations.select(id); cam.focus(s.x, s.z, 12); },
-  horn: () => { const t = trains.nearestTo(cam.controls.target); (t && t.kind === 'heritage' ? whistle : horn)(); },
+  selectStation: (id) => { const s = built.stations.byId[id]; built.stations.select(id); cam.focus(s.x, s.z, 12); },
+  horn: () => { const t = built.trains.nearestTo(cam.controls.target); (t && t.kind === 'heritage' ? whistle : horn)(); },
   info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, fps: app.fps }),
-};
+});
+
+/* ------------------------------------------- the live network from OpenStreetMap */
+const statusEl = document.getElementById('status');
+const setStatus = (he, en) => { if (statusEl) statusEl.innerHTML = `<span dir="rtl">${he}</span><span dir="ltr">${en}</span>`; };
+setStatus('מסילות: Natural Earth (מקורב). מוריד את הרשת העדכנית מ-OpenStreetMap…', 'Rails: Natural Earth (approximate). Fetching the current network from OpenStreetMap…');
+const params = new URLSearchParams(location.search);
+const osmParam = params.get('osm');
+const fixtureUrl = osmParam === 'fixture' ? './fixtures/overpass-israel.json' : osmParam && osmParam !== 'off' ? osmParam : null;
+if (osmParam !== 'off') {
+  setTimeout(() => {
+    loadLiveNetwork({
+      world, curated: stationsData.stations, fixtureUrl, force: params.has('refresh'),
+      onStatus: (kind, detail) => {
+        if (kind === 'mirror') setStatus(`מוריד מ-${new URL(detail).host}…`, `Fetching from ${new URL(detail).host}…`);
+        if (kind === 'failed') setStatus('OpenStreetMap לא זמין כרגע, מציג את המפה המובנית.', `OpenStreetMap unavailable (${detail}); showing the bundled map.`);
+      },
+    }).then((osm) => {
+      if (!osm) { app.liveStatus = { source: 'bundled', applied: false, failed: true }; return; }
+      const t0 = performance.now();
+      const live = buildNetwork({ world, rails: osm.rails, stations: osm.stations, trimWater: false, log: (m) => console.warn('network:', m) });
+      if (live.routes.length < 4 || live.stations.length < 20) {
+        console.warn('live network too thin, keeping the bundled one', live);
+        setStatus('הרשת מ-OpenStreetMap חלקית, נשארים עם המפה המובנית.', 'OpenStreetMap network too thin; keeping the bundled map.');
+        app.liveStatus = { source: osm.source, applied: false, thin: true };
+        return;
+      }
+      disposeNetworkObjects(built);
+      network = live;
+      built = buildNetworkObjects(live);
+      const km = live.edges.reduce((n, e) => n + e.len, 0);
+      const when = new Date(osm.fetched);
+      const day = when.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' });
+      setStatus(`מסילות ותחנות: OpenStreetMap, ${Math.round(km)} ק"מ, ${live.stations.length} תחנות, עודכן ${day}`,
+        `Rails and stations: OpenStreetMap, ${Math.round(km)} km, ${live.stations.length} stations, updated ${when.toLocaleDateString('en-GB')}`);
+      app.liveStatus = { source: osm.source, applied: true, edges: live.edges.length, stations: live.stations.length, routes: live.routes.length, skipped: live.skippedRoutes, ms: Math.round(performance.now() - t0) };
+    }).catch((e) => { console.warn('live network failed', e); app.liveStatus = { source: 'bundled', applied: false, failed: true, error: String(e) }; });
+  }, 400);
+} else {
+  setStatus('מסילות: המפה המובנית (Natural Earth).', 'Rails: bundled map (Natural Earth).');
+}
