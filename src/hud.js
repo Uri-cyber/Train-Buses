@@ -143,8 +143,9 @@ export function createHud(renderer, state, { onPress, controls } = {}) {
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const el = renderer.domElement;
-  let drag = null;
+  let drag = null, enabled = true;
   const pick = (e) => {
+    if (!enabled) return null;
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     camera.updateMatrixWorld(true);
     ray.setFromCamera(ndc, camera);
@@ -193,6 +194,8 @@ export function createHud(renderer, state, { onPress, controls } = {}) {
   const _c = new THREE.Color();
   return {
     scene, camera, desk, levers, buttons, interactive, press,
+    get enabled() { return enabled; },
+    setEnabled(v) { enabled = !!v; desk.visible = enabled; },
     setLever(id, v) { const l = levers.find((x) => x.spec.id === id); if (l) l.value = Math.max(0, Math.min(1, v)); },
     /** two-way binding with the app state, once per frame */
     update(dt, clockText, clockSub) {
@@ -215,6 +218,7 @@ export function createHud(renderer, state, { onPress, controls } = {}) {
       clock.set(clockText, clockSub);
     },
     render() {
+      if (!enabled) return;
       renderer.autoClear = false;
       renderer.clearDepth();
       renderer.render(scene, camera);

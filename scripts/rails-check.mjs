@@ -65,7 +65,7 @@ if (!live) {
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(URL, { waitUntil: 'load', timeout: 90000 });
   await page.waitForFunction(() => !!window.__app, null, { timeout: 120000 });
-  await page.evaluate(() => window.__app.tour.set(false));      // the auto tour would move the camera under us
+  await page.evaluate(() => { window.__app.start(); window.__app.tour.set(false); });      // past the opening overlay; the auto tour would move the camera under us
   if (/[?&]osm=/.test(URL)) await page.waitForFunction(() => window.__app.liveStatus?.applied || window.__app.liveStatus?.failed || window.__app.liveStatus?.thin, null, { timeout: 180000 });
   await page.waitForTimeout(1500);
   const report = await page.evaluate(() => {

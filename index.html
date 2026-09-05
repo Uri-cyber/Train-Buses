@@ -16,10 +16,23 @@
   #hud b { color: #ffd27a; }
   #hud .en { direction: ltr; text-align: left; color: #cfe3ff; font-size: 12px; margin-top: 6px; }
   #loading {
-    position: fixed; inset: 0; display: grid; place-items: center; z-index: 10;
+    position: fixed; inset: 0; display: grid; place-items: center; z-index: 10; text-align: center;
     background: #0b1a2e; color: #f3ede2; font: 16px system-ui, "Segoe UI", Arial, sans-serif;
+    transition: background 1.2s, opacity 0.8s;
   }
   #loading small { display: block; margin-top: 8px; color: #9db8d8; }
+  #loading.ready { background: rgba(11, 26, 46, 0.55); cursor: pointer; }
+  #loading.ready b { font-size: 34px; letter-spacing: 1px; color: #ffd27a; display: block; margin-bottom: 14px; }
+  #loading.ready .go { font-size: 20px; }
+  #loading.gone { opacity: 0; pointer-events: none; }
+  /* background mode: nothing on screen but the map; ?desk brings the console and the help back */
+  body:not(.desk) #hud, body:not(.desk) #tour, body:not(.desk) #status { display: none; }
+  #sound {
+    position: fixed; right: 14px; bottom: 8px; z-index: 6; cursor: pointer; user-select: none;
+    font: 15px system-ui, "Segoe UI", Arial, sans-serif; color: #9db8d8; opacity: 0.55; padding: 4px 8px;
+  }
+  #sound:hover { opacity: 1; }
+  body.desk #sound { bottom: 44px; }
   #status {
     position: fixed; right: 16px; bottom: 10px; z-index: 5; max-width: 46vw;
     font: 12px/1.4 system-ui, "Segoe UI", Arial, sans-serif; color: #f3ede2;
@@ -57,6 +70,7 @@
   <div id="status"></div>
   <div id="tour" hidden><b>סיור אוטומטי</b> · הזיזו את העכבר כדי לקחת את המצלמה<div class="en">Auto tour · move the mouse to take the camera</div></div>
   <div id="credit">Map: Natural Earth (public domain). Rails and stations: OpenStreetMap contributors (ODbL) when reachable.</div>
+  <div id="sound" title="מוזיקה (M)">♪</div>
   <div id="loading"><div>בונים את ישראל…<small>building Israel</small></div></div>
   <script type="module" src="/src/main.js"></script>
 </body>

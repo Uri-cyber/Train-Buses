@@ -2,9 +2,10 @@
 
 A cartoon 3D Israel seen from the air, carrying the real railway network with
 toy-sized trains on it: Israel Railways double-deckers, the Valley Railway's
-steam train and potash and container freights. It runs on its own: when
-nobody touches the mouse the camera rides from train to train. The sun is
-where it really is: the page opens at Israel's current time.
+steam train and potash and container freights. It is made to be left on a
+screen: one click to start, then the camera rides from train to train on its
+own, all day, to slow generated music. The sun is where it really is: the
+page opens at Israel's current time.
 
 Everything you see is generated in code. There are no downloaded models,
 textures, fonts or sounds. The one thing that is not invented is the map:
@@ -31,7 +32,7 @@ npm run dev          # http://localhost:5173
 | `npm run check` | clearance and integrity check on the bundled network, see below |
 | `npm run test:live` | the same check plus the desk test on a network loaded through the live path |
 | `npm run shots` | headless screenshots and console capture from a running preview |
-| `npm run test:controls` | click and drag every desk control in headless Chromium |
+| `npm run test:controls` | click and drag every desk control in headless Chromium (opens with `?desk`) |
 
 The screenshots include a tour view, which waits for the camera to settle
 beside a train; under software rendering that can take a minute.
@@ -41,14 +42,23 @@ in another window. Each accepts a page URL as its first argument.
 
 ## Using it
 
-Leave it alone and it tours: the camera flies to a train, rides beside it
-for half a minute, then glides to the next one. Touch the mouse and the
-camera is yours; after 45 quiet seconds the tour picks up again. Drag to
-orbit, wheel to zoom, right-drag to pan. Click a station to see its name in
-Hebrew and English and fly closer. Gold plates mark landmarks; blue, brown
-and grey plates over the trains name the route and the next stop.
+Open the page and click once (browsers will not play sound before a click).
+The page goes full screen, the music starts, and the tour begins: the camera
+flies to a train, rides beside it for half a minute, then glides to the next
+one. That is all there is to do. `M` mutes the music, `Esc` leaves full
+screen, and `?music=off` in the address opens without sound.
 
-The desk at the bottom of the screen:
+Touch the mouse and the camera is yours; after 45 quiet seconds the tour
+picks up again. Drag to orbit, wheel to zoom, right-drag to pan. Click a
+station to see its name in Hebrew and English and fly closer. Gold plates
+mark landmarks; blue, brown and grey plates over the trains name the route
+and the next stop.
+
+### The control desk (`?desk`)
+
+By default nothing is on screen but the map. Add `?desk` to the address
+(`https://…/Train-Buses/?desk`) to get the console, the help panel and the
+network status line back. The desk at the bottom of the screen:
 
 - **מהירות · SPEED** lever: how fast the trains run
 - **שעה · TIME** lever: the hour, from midnight to midnight
@@ -128,6 +138,9 @@ Map data (c) OpenStreetMap contributors, ODbL.
   ahead whatever route it is on, trains brake for stations and turn round at
   the ends. Locomotives puff smoke, headlights come on at night, and a plate
   over the front names the route and the next stop.
+- **Music**: generated in code from a low drone, slow major-seventh pads that
+  change every dozen seconds, and a sparse pentatonic melody of soft bells,
+  through a generated reverb. No audio file is loaded.
 - **The tour**: a small state machine (fly, follow, hand over, resume) that
   picks the next train by distance, preferring a different family and one not
   visited lately, and chases it from behind and above with a slow sway.

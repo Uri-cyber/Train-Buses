@@ -367,7 +367,7 @@ export function createTrains(rails, terrain, stationsById = null) {
         setInstance(beams, i, t.head.x, t.head.y + 0.22 * SCALE, t.head.z, rot, beamScale, beamScale, beamScale);
         const plate = t.plate;
         let o = 0;
-        if (t.id === followedId) o = 1;
+        if (t.id === followedId) o = nearView;
         else if (focus) { const d = _f.set(t.head.x, t.head.y, t.head.z).distanceTo(focus); o = Math.max(0, Math.min(1, (28 - d) / 10)) * nearView; }
         if (o > 0.02) {
           refreshPlate(t);

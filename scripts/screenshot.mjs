@@ -42,7 +42,7 @@ try {
   console.log('!! app never initialised'); logs.forEach((l) => console.log(l));
   await page.screenshot({ path: `${OUT}/00-failed.png` }); await browser.close(); process.exit(1);
 }
-await page.evaluate(() => window.__app.tour.set(false));      // the auto tour would move the camera under us
+await page.evaluate(() => { window.__app.start(); window.__app.tour.set(false); });      // past the opening overlay; the auto tour would move the camera under us
 await page.waitForTimeout(800);
 
 for (const [name, hour, pos, target] of VIEWS) {

@@ -8,7 +8,7 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 
-const URL = process.argv[2] || process.env.URL || 'http://127.0.0.1:4173/';
+const URL = process.argv[2] || process.env.URL || 'http://127.0.0.1:4173/?desk';   // the desk only exists with ?desk
 const EXE = process.env.CHROME_PATH || ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome'].find((p) => existsSync(p)); // undefined = Playwright's own Chromium
 const browser = await chromium.launch({ executablePath: EXE, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -16,7 +16,7 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 await page.goto(URL, { waitUntil: 'load' });
 await page.waitForFunction(() => !!window.__app);
-await page.evaluate(() => window.__app.tour.set(false));      // the auto tour would move the camera under us
+await page.evaluate(() => { window.__app.start(); window.__app.tour.set(false); });      // past the opening overlay; the auto tour would move the camera under us
 if (/[?&]osm=/.test(URL)) await page.waitForFunction(() => window.__app.liveStatus?.applied || window.__app.liveStatus?.failed || window.__app.liveStatus?.thin, null, { timeout: 180000 });
 await page.waitForTimeout(1500);
 
