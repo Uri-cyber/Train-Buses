@@ -138,9 +138,9 @@ Map data (c) OpenStreetMap contributors, ODbL.
   ahead whatever route it is on, trains brake for stations and turn round at
   the ends. Locomotives puff smoke, headlights come on at night, and a plate
   over the front names the route and the next stop.
-- **Music**: generated in code from a low drone, slow major-seventh pads that
-  change every dozen seconds, and a sparse pentatonic melody of soft bells,
-  through a generated reverb. No audio file is loaded.
+- **Music**: generated in code in a quiet Japanese garden mood: koto-like plucks in
+  the hirajoshi scale, a few notes then long silence, a distant breathy flute
+  now and then, a water drop, a faint drone, all through a long generated reverb.
 - **The tour**: a small state machine (fly, follow, hand over, resume) that
   picks the next train by distance, preferring a different family and one not
   visited lately, and chases it from behind and above with a slow sway.
