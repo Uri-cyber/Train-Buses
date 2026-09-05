@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OUTLINE_LAYER } from './post.js';
-import { Builder, stdMat, glowMat, setInstance, rng } from './builder.js';
+import { Builder, stdMat, glowMat, setInstance, rng, paint } from './builder.js';
+import { labelTexture } from './labels.js';
 import { C } from './palette.js';
 import { TRACK } from './rails.js';
 
@@ -108,7 +109,7 @@ const SPEEDS = { passenger: 0.42, heritage: 0.22, freight: 0.30 };  // km per se
 const ACCEL = 0.22;
 const GAP = 0.08 * SCALE;          // coupling gap between cars
 
-export function createTrains(rails, terrain) {
+export function createTrains(rails, terrain, stationsById = null) {
   const group = new THREE.Group();
   group.name = 'trains';
   const R = rng(99);
@@ -221,11 +222,87 @@ export function createTrains(rails, terrain) {
     return limit;
   };
 
+  /* ------------------------------------------------------ dressing */
+  // smoke: a ring of toon puffs fed from the chimneys and exhausts
+  const PUFFS = 240, PUFF_LIFE = 3.2;
+  const puffGeo = paint(new THREE.IcosahedronGeometry(1, 1).toNonIndexed(), 0xffffff, 0);
+  const smoke = new THREE.InstancedMesh(puffGeo, stdMat(), PUFFS);
+  smoke.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  smoke.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(PUFFS * 3).fill(1), 3);
+  smoke.instanceColor.setUsage(THREE.DynamicDrawUsage);
+  smoke.castShadow = false; smoke.name = 'smoke';
+  smoke.layers.enable(OUTLINE_LAYER);
+  group.add(smoke);
+  const puffs = Array.from({ length: PUFFS }, () => ({ x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, age: PUFF_LIFE, big: 1 }));
+  let puffNext = 0;
+  const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+  for (let i = 0; i < PUFFS; i++) smoke.setMatrixAt(i, ZERO);
+  const SMOKE = {
+    heritage: { rate: 7, colour: [0.96, 0.96, 0.96], at: [0, 0.74 * SCALE + 0.16 * SCALE, 0.62 * SCALE * ZS], big: 1.0 },
+    freight: { rate: 3, colour: [0.48, 0.5, 0.53], at: [0, 0.63 * SCALE, -0.3 * SCALE * ZS], big: 0.7 },
+  };
+  const _m = new THREE.Matrix4(), _v = new THREE.Vector3();
+  const emit = (t, spec) => {
+    const car = t.cars[0], ty = types[car.type];
+    ty.solid.getMatrixAt(car.idx, _m);
+    _v.set(spec.at[0], spec.at[1], spec.at[2] * (t.dir === 1 ? 1 : -1)).applyMatrix4(_m);
+    const p = puffs[puffNext];
+    p.x = _v.x + (Math.random() - 0.5) * 0.1; p.y = _v.y; p.z = _v.z + (Math.random() - 0.5) * 0.1;
+    p.vx = -t.head.tx * t.v * 0.35 + (Math.random() - 0.5) * 0.08; p.vz = -t.head.tz * t.v * 0.35 + (Math.random() - 0.5) * 0.08;
+    p.vy = 0.28 + Math.random() * 0.1; p.age = 0; p.big = spec.big;
+    smoke.instanceColor.setXYZ(puffNext, spec.colour[0], spec.colour[1], spec.colour[2]);
+    puffNext = (puffNext + 1) % PUFFS;
+  };
+  const smokeAcc = new Map();
+
+  // headlights: an additive cone ahead of every train, on at night
+  const beamGeo = new THREE.ConeGeometry(0.55 * SCALE, 2.2 * SCALE, 12, 1, true).rotateX(-Math.PI / 2).translate(0, 0, 1.1 * SCALE);
+  const beams = new THREE.InstancedMesh(beamGeo, new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, side: THREE.DoubleSide }), trains.length);
+  beams.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  beams.name = 'headlights'; beams.renderOrder = 5;
+  group.add(beams);
+
+  // name plates: route and next stop, floating over the front of the train
+  const stationName = (id, key) => (stationsById && stationsById[id] ? stationsById[id][key] : '');
+  const nextStopId = (t) => {
+    const stops = t.route.stops;
+    if (!stops.length) return null;
+    const skip = Math.max(0.3, t.total * 0.4);
+    if (t.dir === 1) { for (const s of stops) if (s.d > t.d + skip) return s.id; return stops[stops.length - 1].id; }
+    for (let i = stops.length - 1; i >= 0; i--) if (stops[i].d < t.d - skip) return stops[i].id;
+    return stops[0].id;
+  };
+  for (const t of trains) {
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: null, transparent: true, depthTest: false, sizeAttenuation: false }));
+    sprite.scale.set(0.17, 0.05, 1);
+    sprite.center.set(0.5, -0.4);
+    sprite.renderOrder = 21;
+    sprite.visible = false;
+    group.add(sprite);
+    t.plate = sprite; t.plateStop = undefined;
+  }
+  const refreshPlate = (t) => {
+    const id = nextStopId(t);
+    if (id === t.plateStop) return;
+    t.plateStop = id;
+    if (t.plate.material.map) t.plate.material.map.dispose();
+    const he = id ? `${t.route.he}  ⟵  ${stationName(id, 'he')}` : t.route.he;
+    const en = id ? `${t.route.en}  ·  next: ${stationName(id, 'en')}` : t.route.en;
+    t.plate.material.map = labelTexture(he, en, { w: 900, h: 160, plate: t.kind === 'heritage' ? 'rgba(70, 40, 20, 0.92)' : t.kind === 'freight' ? 'rgba(40, 46, 52, 0.92)' : 'rgba(17, 45, 96, 0.92)', border: t.kind === 'heritage' ? '#d4a83a' : '#d0342c' });
+    t.plate.material.needsUpdate = true;
+  };
+
   const _c = new THREE.Color();
+  const _f = new THREE.Vector3();
   return {
-    group, trains, types, SCALE,
-    /** @param speedLever 0..1  @param night 0..1  @param lightsOn force lights */
-    update(dt, speedLever, night, lightsOn) {
+    group, trains, types, SCALE, smoke, beams,
+    /**
+     * @param speedLever 0..1  @param night 0..1  @param lightsOn force lights
+     * @param focus      world point the viewer looks at (plates show near it)
+     * @param followedId id of the train the tour is riding, whose plate always shows
+     * @param viewDist   camera distance to the focus (km): plates hide when you are far out
+     */
+    update(dt, speedLever, night, lightsOn, focus = null, followedId = null, viewDist = 0) {
       const factor = 0.15 + speedLever * 2.2;
       for (const t of trains) {
         const vmax = SPEEDS[t.kind] * factor;
@@ -259,6 +336,46 @@ export function createTrains(rails, terrain) {
       const on = lightsOn ? 1 : Math.max(0.12, Math.min(1, (night - 0.35) * 2.2));
       _c.setScalar(on);
       for (const m of glowMats) m.color.copy(_c);
+
+      // smoke
+      for (const t of trains) {
+        const spec = SMOKE[t.kind];
+        if (!spec) continue;
+        const acc = (smokeAcc.get(t) || 0) + dt * spec.rate * (0.25 + t.v * 1.6);
+        let n = Math.floor(acc); smokeAcc.set(t, acc - n);
+        while (n-- > 0) emit(t, spec);
+      }
+      for (let i = 0; i < PUFFS; i++) {
+        const p = puffs[i];
+        if (p.age >= PUFF_LIFE) continue;
+        p.age += dt;
+        if (p.age >= PUFF_LIFE) { smoke.setMatrixAt(i, ZERO); continue; }
+        p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+        const k = p.age / PUFF_LIFE;
+        const sc = (0.12 + k * 0.55) * p.big * (1 - Math.max(0, (k - 0.8) / 0.2));   // grow, then shrink away
+        setInstance(smoke, i, p.x, p.y, p.z, 0, sc, sc, sc);
+      }
+      smoke.instanceMatrix.needsUpdate = true; smoke.instanceColor.needsUpdate = true;
+
+      // headlights and plates
+      const nearView = Math.max(0, Math.min(1, (160 - viewDist) / 60));
+      const beamsOn = lightsOn || night > 0.5;
+      const beamScale = beamsOn ? 1 : 0;
+      for (let i = 0; i < trains.length; i++) {
+        const t = trains[i];
+        const rot = Math.atan2(t.head.tx, t.head.tz);
+        setInstance(beams, i, t.head.x, t.head.y + 0.22 * SCALE, t.head.z, rot, beamScale, beamScale, beamScale);
+        const plate = t.plate;
+        let o = 0;
+        if (t.id === followedId) o = 1;
+        else if (focus) { const d = _f.set(t.head.x, t.head.y, t.head.z).distanceTo(focus); o = Math.max(0, Math.min(1, (28 - d) / 10)) * nearView; }
+        if (o > 0.02) {
+          refreshPlate(t);
+          plate.position.set(t.head.x, t.head.y + 0.9 * SCALE, t.head.z);
+          plate.material.opacity = o; plate.visible = true;
+        } else plate.visible = false;
+      }
+      beams.instanceMatrix.needsUpdate = true;
     },
     nearestTo(point) {
       let best = null, bd = Infinity;
@@ -268,5 +385,6 @@ export function createTrains(rails, terrain) {
       }
       return best;
     },
+    byId(id) { return trains.find((t) => t.id === id) || null; },
   };
 }

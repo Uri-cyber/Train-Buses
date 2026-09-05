@@ -53,7 +53,7 @@ let built = null;
 function buildNetworkObjects(net) {
   const rails = createRails(net, terrain);
   const stations = createStations(net, rails, terrain);
-  const trains = createTrains(rails, terrain);
+  const trains = createTrains(rails, terrain, stations.byId);
   const occupancy = makeOccupancy(net, world, terrain);
   const cities = createCities(world, net, terrain, occupancy);
   const landmarks = createLandmarks(world, terrain, occupancy, net);
@@ -150,7 +150,7 @@ function frame() {
   lights.update(skyState, cam.controls.target, dist);
   sea.update(clock.elapsedTime);
   built.stations.update(cam.camera, dt);
-  built.trains.update(dt, state.speed, 1 - skyState.day, state.lights);
+  built.trains.update(dt, state.speed, 1 - skyState.day, state.lights, cam.controls.target, null, dist);
   traffic.update(dt, state.traffic, 1 - skyState.day, state.lights);
   built.cities.update(1 - skyState.day, state.lights);
   built.landmarks.update(dt, cam.camera, state.turntable, 1 - skyState.day, state.lights);
