@@ -64,6 +64,13 @@ const TOY = params.get('trains') === 'toy';        // ?trains=toy: the made-up f
 // Real trains at real speed barely move on a map of a whole country, so the timetable
 // runs eight times faster than the clock by default; ?speed=1 is true real time.
 const TIME_SCALE = Math.max(1, Math.min(60, +params.get('speed') || 8));
+// The sky has its own fast clock so the day actually happens on a screen: it starts at Israel's
+// hour, runs at TIME_SCALE, and three times faster through the night (19:30 to 05:30) so a night
+// lasts about 25 real minutes at x8. ?sky=real keeps the sun on Israel's real time.
+const SKY_REAL = params.get('sky') === 'real';
+const NIGHT_BOOST = 3;
+const isSkyNight = (h) => h >= 19.5 || h < 5.5;
+let skyClock = null;                              // the sky's own hour (0..24), see above
 // Live delays from Israel Railways come through a small proxy (worker/rail-live.js):
 // ?live=<its url>, or the address below once one is deployed. ?live=off turns it off.
 const LIVE_URL = 'https://israel-by-rail-live.meiriuri.workers.dev/live';
@@ -188,7 +195,7 @@ let frames = 0, fpsT = 0;
 renderer.info.autoReset = false;
 const app = {
   scene, camera: cam.camera, renderer, state, cam, terrain, sky, lights, post, world, traffic, hud, tour, music, fps: 0, timetable: { loaded: false, pending: true },
-  liveStatus: { source: 'bundled', applied: false },
+  liveStatus: { source: 'bundled', applied: false }, skyHour: state.hour,
   get live() { return LIVE ? { source: LIVE, ...live.status, ...(built.trains.live || {}) } : null; },
   get network() { return network; },
   get rails() { return built.rails; }, get stations() { return built.stations; }, get trains() { return built.trains; },
@@ -199,11 +206,18 @@ function frame() {
   renderer.info.reset();
   const dt = Math.min(clock.getDelta(), 0.1);
   if (state.autoSun) state.hour = israelClock().hour;
-  const skyState = sky.update(state.hour, dt, cam.camera.position);
   const today = israelDate();
   // the timetable runs on Israel's clock; with ?speed it runs ahead of it, wrapping at midnight
   if (TIME_SCALE > 1) ttClock = ((ttClock ?? state.hour * 3600) + dt * TIME_SCALE) % 86400;
   const T = TIME_SCALE > 1 ? ttClock : state.hour * 3600;
+  // the sky's own clock: fast by day, faster by night; a manual hour or ?sky=real wins
+  if (skyClock === null) skyClock = state.hour;
+  skyClock = (skyClock + dt * TIME_SCALE * (isSkyNight(skyClock) ? NIGHT_BOOST : 1) / 3600) % 24;
+  const skyFast = state.autoSun && TIME_SCALE > 1 && !SKY_REAL;
+  if (!skyFast) skyClock = state.hour;            // stay continuous with the real or manual hour
+  const skyHour = skyClock;
+  app.skyHour = skyHour;
+  const skyState = sky.update(skyHour, dt, cam.camera.position);
   built.trains.update(dt, state.speed, 1 - skyState.day, state.lights, cam.controls.target, tour.trainId, cam.distance(), { T, ymd: today.ymd, weekday: today.weekday });
   traffic.update(dt, state.traffic, 1 - skyState.day, state.lights);
   tour.update(dt);                 // after the trains moved, before the camera settles
@@ -214,12 +228,13 @@ function frame() {
   built.stations.update(cam.camera, dt);
   built.cities.update(1 - skyState.day, state.lights);
   built.landmarks.update(dt, cam.camera, state.turntable, 1 - skyState.day, state.lights);
-  post.setNight(1 - skyState.day, skyState.dusk);
+  post.setNight(1 - skyState.day, skyState.dusk, skyState.blueHour);
   post.setZoom(dist);
   renderer.shadowMap.needsUpdate = true;
   post.render();
-  const hh = Math.floor(state.hour), mm = Math.floor((state.hour - hh) * 60);
-  hud.update(dt, `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`, state.autoSun ? 'השעה בישראל עכשיו' : 'שעה מכוונת ידנית');
+  const hh = Math.floor(skyHour), mm = Math.floor((skyHour - hh) * 60);
+  hud.update(dt, `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`,
+    !state.autoSun ? 'שעה מכוונת ידנית' : skyFast ? `זמן מואץ ×${TIME_SCALE}` : 'השעה בישראל עכשיו');
   hud.render();
   frames++; fpsT += dt;
   if (fpsT >= 1) { app.fps = Math.round(frames / fpsT); frames = 0; fpsT = 0; }
@@ -242,7 +257,7 @@ window.__app = Object.assign(Object.create(app), {
   fly: (x, z, dist) => cam.focus(x, z, dist),
   selectStation: (id) => { const s = built.stations.byId[id]; built.stations.select(id); cam.focus(s.x, s.z, 12); },
   horn: () => { const t = built.trains.nearestTo(cam.controls.target); (t && t.kind === 'heritage' ? whistle : horn)(); },
-  info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, fps: app.fps }),
+  info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, fps: app.fps, skyHour: app.skyHour }),
 });
 
 /* ------------------------------------------------ the real timetable */

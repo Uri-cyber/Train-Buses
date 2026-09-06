@@ -14,7 +14,6 @@ export function createLighting(scene, renderer) {
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.bias = -0.0004;
   sun.shadow.normalBias = 0.05;
-  sun.shadow.radius = 2;
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = 1600;
   scene.add(sun, sun.target);
@@ -38,7 +37,10 @@ export function createLighting(scene, renderer) {
       _target.copy(focus);
       sun.target.position.copy(_target);
       sun.position.copy(_target).addScaledVector(dir, 600);
-      sun.color.setHex(mixHex(0xff9450, C.sun, clamp01(el * 3)));
+      // amber at the horizon, gold through the golden hour, neutral by mid-morning; once the sun is
+      // under the horizon its faint fill turns cool so the desert does not glow red all night
+      const sunset = mixHex(0x6a6a88, 0xffa860, clamp01((el + 0.03) * 30));
+      sun.color.setHex(mixHex(sunset, mixHex(0xffc98a, C.sun, clamp01(el * 4)), clamp01(el * 10)));
       sun.intensity = 0.12 + Math.pow(day, 0.75) * 1.9;
       // shadow box hugs what is on screen
       const S = Math.max(6, Math.min(280, dist * 0.95));
@@ -48,7 +50,7 @@ export function createLighting(scene, renderer) {
       sun.shadow.needsUpdate = true;
 
       hemi.color.setHex(mixHex(0x10203a, C.horizonDay, day));
-      hemi.groundColor.setHex(mixHex(0x0b0f18, 0xcbb894, day));
+      hemi.groundColor.setHex(mixHex(mixHex(0x0b0f18, 0xcbb894, day), 0x8a7a9a, sky.blueHour * 0.6));
       hemi.intensity = 0.14 + day * 0.8;
 
       moon.position.copy(_target).addScaledVector(dir, -600);

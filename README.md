@@ -4,8 +4,9 @@ A cartoon 3D Israel seen from the air, carrying the real railway network with
 toy-sized trains on it: Israel Railways double-deckers, the Valley Railway's
 steam train and potash and container freights. It is made to be left on a
 screen: one click to start, then the camera rides from train to train on its
-own, all day, to slow generated music. The sun is where it really is: the
-page opens at Israel's current time.
+own, all day, to slow generated music. The page opens at Israel's current
+time, then the sky runs ahead on the fast clock with short nights, so the
+whole day plays out while you watch.
 
 Everything you see is generated in code. There are no downloaded models,
 textures, fonts or sounds. The one thing that is not invented is the map:
@@ -87,6 +88,10 @@ day cost little.
   timetable runs eight times faster than the clock, starting from now: the
   trains, routes and order are real, the positions run ahead of the wall
   clock. `?speed=1` is true real time, `?speed=20` a time-lapse.
+- The sky runs on the same fast clock, starting from Israel's hour, and three
+  times faster again through the night (19:30 to 05:30), so at x8 a night
+  lasts about 25 real minutes instead of a third of the show. `?sky=real`
+  keeps the sun on Israel's real time.
 - Shabbat and the small hours are quiet, so when fewer than three trains are
   running the page replays a weekday morning and the status line says so.
 - No feed, no trains? `?trains=toy` brings back the made-up service. The
@@ -183,7 +188,7 @@ Map data (c) OpenStreetMap contributors, ODbL.
   are shown for context and sink into the sea beyond 32 km from the border.
 - **Sea and lakes**: one sheet at sea level over ocean cells, shaded by depth;
   the Kinneret at -210 m and the Dead Sea at -430 m.
-- **Sun**: the true solar position for Israel's clock (`Asia/Jerusalem`).
+- **Sun**: the true solar position for the sky clock (Israel's hour, run ahead at `?speed`; `?sky=real` for the real time). Golden hour, a west-lit sunset and a blue hour follow from it.
 - **Rails**: every graph edge drawn once as double track, draped on the terrain
   with a smoothed profile; tunnel portals and piers appear where the profile
   leaves the ground.

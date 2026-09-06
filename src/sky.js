@@ -38,10 +38,12 @@ export function israelClock(now = new Date()) {
 }
 
 /** A UTC Date for today at the given Israel wall-clock hour. */
+let _offAt = -1e9, _off = 0;                    // the Israel UTC offset, refreshed once a second (Intl is slow per frame)
 export function dateAtIsraelHour(hourLocal, now = new Date()) {
-  const { offset } = israelClock(now);
-  const d = new Date(now.getTime());
-  const utcH = hourLocal - offset;
+  const ms = now.getTime();
+  if (ms - _offAt > 1000) { _off = israelClock(now).offset; _offAt = ms; }
+  const d = new Date(ms);
+  const utcH = hourLocal - _off;
   d.setUTCHours(0, 0, 0, 0);
   return new Date(d.getTime() + utcH * 3600000);
 }
@@ -56,6 +58,8 @@ const SkyShader = {
     sunDir: { value: new THREE.Vector3(0, 1, 0) },
     sunColor: { value: new THREE.Color(C.sun) },
     sunUp: { value: 1 },
+    dusk: { value: 0 },
+    horizonWarm: { value: new THREE.Color(C.horizonDusk) },
   },
   vertexShader: /* glsl */`
     varying vec3 vDir;
@@ -65,7 +69,7 @@ const SkyShader = {
       gl_Position = p.xyww;                          // always at the far plane
     }`,
   fragmentShader: /* glsl */`
-    uniform vec3 top, horizon, ground, sunDir, sunColor; uniform float sunUp;
+    uniform vec3 top, horizon, ground, sunDir, sunColor, horizonWarm; uniform float sunUp, dusk;
     varying vec3 vDir;
     void main() {
       vec3 d = normalize(vDir);
@@ -73,6 +77,9 @@ const SkyShader = {
       vec3 sky = mix(horizon, top, pow(clamp(y, 0.0, 1.0), 0.5));
       // below the horizon: haze fading into deep sea, seen when looking down from height
       sky = mix(sky, ground, smoothstep(0.0, -0.35, y));
+      // at dusk the warm glow sits only on the sun's side of the horizon; the far side stays cool
+      float toSun = pow(max(dot(normalize(vec3(d.x, 0.0, d.z)), normalize(vec3(sunDir.x, 0.0, sunDir.z))), 0.0), 3.0);
+      sky = mix(sky, horizonWarm, toSun * dusk * (1.0 - smoothstep(0.0, 0.35, y)));
       float s = max(dot(d, sunDir), 0.0);
       float glow = pow(s, 6.0) * 0.16 + pow(s, 48.0) * 0.45;
       float disc = smoothstep(0.99935, 0.99975, s);
@@ -121,7 +128,7 @@ export function createSky(scene) {
   // sun and moon glows as sprites, so they sit "in" the scene for bloom
   const glowTex = radialSprite(128, 0.05, 1, 2.2);
   const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: C.sun, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-  sunSprite.scale.set(160, 160, 1);
+  sunSprite.scale.set(70, 70, 1);
   const moonSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: C.moon, transparent: true, depthWrite: false, opacity: 0.55 }));
   moonSprite.scale.set(50, 50, 1);
   scene.add(sunSprite, moonSprite);
@@ -145,7 +152,8 @@ export function createSky(scene) {
       const day = clamp01((el + 0.04) * 3.2);
       const dusk = Math.max(0, 1 - Math.abs(el) * 4.5) * (1 - Math.abs(el) * 2 > 0 ? 1 : 0.5);
       u.top.value.setHex(mixHex(mixHex(C.zenithNight, C.zenithDusk, dusk), C.zenithDay, day));
-      u.horizon.value.setHex(mixHex(mixHex(C.horizonNight, C.horizonDusk, dusk), C.horizonDay, day));
+      u.horizon.value.setHex(mixHex(mixHex(C.horizonNight, C.horizonDusk, dusk * 0.5), C.horizonDay, day));
+      u.dusk.value = dusk;
       u.sunDir.value.copy(sunDir);
       u.sunUp.value = clamp01((el + 0.02) * 12);
       u.ground.value.setHex(mixHex(0x06131f, 0x0a2e48, day));
@@ -154,7 +162,8 @@ export function createSky(scene) {
       scene.fog.color.copy(u.horizon.value);
       const anchor = cameraPos ?? new THREE.Vector3();
       sunSprite.position.copy(anchor).addScaledVector(sunDir, 1200);
-      sunSprite.material.opacity = u.sunUp.value * 0.9;
+      sunSprite.scale.setScalar(70 + 60 * dusk);          // a small crisp disc by day, a fatter low sun at dusk
+      sunSprite.material.opacity = u.sunUp.value * 0.6;
       moonSprite.position.copy(anchor).addScaledVector(sunDir, -1200);
       moonSprite.material.opacity = clamp01((-el - 0.05) * 6) * 0.7;
       cloudMat.color.setHex(mixHex(0x2a3550, mixHex(0xf1c9a0, 0xffffff, clamp01(el * 3)), clamp01((el + 0.1) * 2.5)));
@@ -162,7 +171,9 @@ export function createSky(scene) {
         c.position.x += c.userData.v * dt;
         if (c.position.x > 100) c.position.x = -100;
       }
-      return { dir: sunDir, elevation: el, day, dusk, sunColor: u.sunColor.value };
+      // the cool wash after the sun has gone and before full night
+      const blueHour = clamp01((-el + 0.05) * 8) * (1 - clamp01((-el - 0.15) * 6));
+      return { dir: sunDir, elevation: el, day, dusk, blueHour, sunColor: u.sunColor.value };
     },
   };
 }

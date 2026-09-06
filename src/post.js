@@ -134,19 +134,23 @@ const TiltShiftShader = {
 };
 
 const FinishShader = {
-  uniforms: { tDiffuse: { value: null }, amount: { value: 0.36 }, warmth: { value: 0.0 } },
+  uniforms: { tDiffuse: { value: null }, amount: { value: 0.36 }, warmth: { value: 0.0 }, blueHour: { value: 0.0 } },
   vertexShader: /* glsl */`
     varying vec2 vUv;
     void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: /* glsl */`
-    uniform sampler2D tDiffuse; uniform float amount, warmth;
+    uniform sampler2D tDiffuse; uniform float amount, warmth, blueHour;
     varying vec2 vUv;
     void main() {
       vec4 c = texture2D(tDiffuse, vUv);
       vec2 p = vUv - 0.5;
       float v = smoothstep(0.85, 0.35, dot(p, p) * 2.0);
       c.rgb *= mix(1.0 - amount, 1.0, v);
-      c.rgb += vec3(0.03, 0.012, -0.02) * warmth;          // a little warmth at dusk
+      // golden hour: a multiplicative warm cast (the toon bands stay bands, red capped at +10%)
+      c.rgb *= 1.0 + warmth * vec3(0.10, 0.04, -0.06);
+      c.rgb += blueHour * vec3(-0.02, 0.0, 0.05);           // blue hour: a cool wash after sunset
+      float lum = dot(c.rgb, vec3(0.3, 0.59, 0.11));
+      c.rgb = mix(vec3(lum), c.rgb, 1.0 + 0.15 * warmth);  // a touch more saturation at dusk
       gl_FragColor = c;
     }`,
 };
@@ -184,10 +188,12 @@ export function createPost(renderer, scene, camera) {
       tiltH.enabled = tiltV.enabled = q !== 'low';
     },
     /** 0 = full day, 1 = deep night */
-    setNight(t, dusk = 0) {
-      bloom.strength = 0.16 + t * 0.55;
-      bloom.threshold = 0.94 - t * 0.35;
+    setNight(t, dusk = 0, blueHour = 0) {
+      bloom.strength = 0.16 + t * 0.55 + dusk * 0.25;
+      bloom.threshold = 0.94 - t * 0.35 - dusk * 0.15;
+      renderer.toneMappingExposure = 1.0 + dusk * 0.12 - t * 0.15;
       finish.uniforms.warmth.value = dusk;
+      finish.uniforms.blueHour.value = blueHour;
     },
     /** tilt-shift gets stronger the further out you are */
     setZoom(dist) {
