@@ -53,7 +53,7 @@ export function makeOccupancy(network, world, terrain, opts = {}) {
     for (let d = 0; d <= lk.length; d += 0.35) { const p = lk.at(d); add(p.x, p.z, roadR, 'road'); }
   }
   // stations
-  for (const s of network.stations) add(s.x, s.z, 2.4, 'station');
+  for (const s of network.stations) add(s.x, s.z, 2.0, 'station');
 
   const mask = terrain.mask;
   const onCoreLand = (x, z) => mask.isLand(x, z) && mask.nearIsrael(x, z, 3) && terrain.heightAt(x, z) > 0.005;

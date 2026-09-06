@@ -16,11 +16,11 @@ import { paint, stdMat, setInstance } from './builder.js';
  * 250x life, so the formation reads from the air under the toy trains.
  */
 export const TRACK = {
-  gauge: 0.40, ballastHalf: 0.70, railW: 0.14, railH: 0.11,
-  sleeperEvery: 1.2, lift: 0.06, step: 0.25, smoothKm: 2.6,
+  gauge: 0.28, ballastHalf: 0.55, railW: 0.10, railH: 0.08,
+  sleeperEvery: 0.9, lift: 0.05, step: 0.25, smoothKm: 2.6,
   bridgeAbove: 0.25, tunnelBelow: 0.25,
-  laneOffset: 1.05,        // each direction runs on its own track, this far from the centreline
-  corridorHalf: 1.75,      // half the width of the whole formation (laneOffset + ballastHalf)
+  laneOffset: 0.80,        // each direction runs on its own track, this far from the centreline
+  corridorHalf: 1.35,      // half the width of the whole formation (laneOffset + ballastHalf)
 };
 
 export function createRails(network, terrain) {
@@ -128,7 +128,7 @@ export function createRails(network, terrain) {
   group.add(track);
 
   // sleepers: one instanced box
-  const sleeperGeo = paint(new THREE.BoxGeometry(TRACK.corridorHalf * 2 - 0.2, 0.05, 0.28).toNonIndexed(), C.sleeper, 0.08);
+  const sleeperGeo = paint(new THREE.BoxGeometry(TRACK.corridorHalf * 2 - 0.2, 0.04, 0.2).toNonIndexed(), C.sleeper, 0.08);
   const sleeperMesh = new THREE.InstancedMesh(sleeperGeo, stdMat({ roughness: 0.95 }), sleepers.length);
   sleepers.forEach(([x, y, z, rot], i) => setInstance(sleeperMesh, i, x, y, z, rot));
   sleeperMesh.instanceMatrix.needsUpdate = true;
@@ -137,7 +137,7 @@ export function createRails(network, terrain) {
   group.add(sleeperMesh);
 
   // piers under bridges (box from the ground to the deck, scaled per instance)
-  const pierGeo = paint(new THREE.BoxGeometry(0.6, 1, 2.4).translate(0, 0.5, 0).toNonIndexed(), C.concrete, 0.06);
+  const pierGeo = paint(new THREE.BoxGeometry(0.45, 1, 2.0).translate(0, 0.5, 0).toNonIndexed(), C.concrete, 0.06);
   const pierMesh = new THREE.InstancedMesh(pierGeo, stdMat(), Math.max(1, piers.length));
   pierMesh.layers.enable(OUTLINE_LAYER);
   piers.forEach(([x, y, z, rot, hgt], i) => setInstance(pierMesh, i, x, y - 0.05, z, rot, 1, hgt + 0.02, 1));
@@ -148,7 +148,7 @@ export function createRails(network, terrain) {
   group.add(pierMesh);
 
   // tunnel portals: a stone arch face across the track
-  const portalGeo = paint(new THREE.BoxGeometry(3.4, 1.3, 0.5).translate(0, 0.5, 0).toNonIndexed(), C.stoneDark, 0.08);
+  const portalGeo = paint(new THREE.BoxGeometry(2.8, 1.0, 0.4).translate(0, 0.4, 0).toNonIndexed(), C.stoneDark, 0.08);
   const portalMesh = new THREE.InstancedMesh(portalGeo, stdMat(), Math.max(1, portals.length));
   portalMesh.layers.enable(OUTLINE_LAYER);
   portals.forEach(([x, y, z, rot], i) => setInstance(portalMesh, i, x, y - 0.1, z, rot));

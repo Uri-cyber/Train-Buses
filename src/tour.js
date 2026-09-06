@@ -10,7 +10,7 @@ import { HOME } from './camera.js';
  */
 const FOLLOW_S = 32;      // seconds riding with one train
 const RESUME_S = 20;      // seconds of quiet before the tour resumes
-const RADIUS = 11, UP = 4.5;         // chase camera: km from the train and above it
+const RADIUS = 8, UP = 3.3;          // chase camera: km from the train and above it
 const ORBIT = 0.11;       // rad/s: the camera circles the train slowly, so it is always on the move
 
 export function createTour({ cam, getTrains, terrain, state, hint }) {
@@ -27,9 +27,9 @@ export function createTour({ cam, getTrains, terrain, state, hint }) {
     // circle the train: start behind it, drift round, breathe in and out
     const heading = Math.atan2(T.tx, T.tz);
     const a = heading + Math.PI + phase;
-    const r = RADIUS + Math.sin(phase * 0.37) * 3;
+    const r = RADIUS + Math.sin(phase * 0.37) * 2.2;
     _target.set(mx, my, mz);
-    _pos.set(mx + Math.sin(a) * r, my + UP + Math.sin(phase * 0.23) * 1.2, mz + Math.cos(a) * r);
+    _pos.set(mx + Math.sin(a) * r, my + UP + Math.sin(phase * 0.23) * 0.9, mz + Math.cos(a) * r);
     return { pos: _pos, target: _target };
   };
 

@@ -20,7 +20,7 @@ import { TRACK } from './rails.js';
 
 const W = 0.62;                    // body width (before SCALE)
 const cols = C.container;
-export const SCALE = 2.2;          // vehicles are built at unit scale, then blown up
+export const SCALE = 1.5;          // vehicles are built at unit scale, then blown up
 const ZS = 0.65;                   // ...and squashed along the track so they stay stubby
 
 const CATALOGUE = {
