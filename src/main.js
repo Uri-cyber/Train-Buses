@@ -235,8 +235,8 @@ function frame() {
   } else { focusY = 0.52; post.setFocus(0.52, 0.16); }
   lights.update(skyState, cam.controls.target, dist);
   sea.update(clock.elapsedTime);
-  built.stations.update(cam.camera, dt);
-  built.cities.update(1 - skyState.day, state.lights);
+  built.stations.update(cam.camera, dt, 1 - skyState.day, state.lights);
+  built.cities.update(1 - skyState.day, state.lights, clock.elapsedTime);
   built.landmarks.update(dt, cam.camera, state.turntable, 1 - skyState.day, state.lights);
   post.setNight(1 - skyState.day, skyState.dusk, skyState.blueHour);
   post.setZoom(dist);

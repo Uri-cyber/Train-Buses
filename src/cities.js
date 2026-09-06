@@ -1,14 +1,16 @@
 import * as THREE from 'three';
 import { OUTLINE_LAYER } from './post.js';
 import { Builder, stdMat, glowMat, setInstance, rng } from './builder.js';
-import { C, smooth } from './palette.js';
+import { C, smoothstep } from './palette.js';
+import { radialSprite } from './textures.js';
 
 /**
  * Towns and cities as instanced building blocks around the real places and
  * every station: white Bauhaus-style blocks with rounded balconies on the
  * coast, Jerusalem stone with flat roofs inland, glass towers in Tel Aviv
  * and Haifa, and a solar water heater on almost every roof, because this is
- * Israel. Windows glow after dark.
+ * Israel. Windows come on one building at a time at dusk, a few stay dark,
+ * the towers twinkle faintly, and the big cities sit under a sodium haze.
  */
 const BIG = { 'Tel Aviv': 11, Haifa: 7.5, Jerusalem: 7.5, Beersheba: 5, Nazareth: 3, Ramla: 2.5 };
 
@@ -91,7 +93,7 @@ export function createCities(world, network, terrain, occupancy) {
     },
   };
 
-  const glowMats = [];
+  const glows = [];                                 // { mesh, thr, base, tw } per kind
   let count = 0;
   for (const [kind, list] of Object.entries(kinds)) {
     if (!list.length) continue;
@@ -108,8 +110,15 @@ export function createCities(world, network, terrain, occupancy) {
       const glow = new THREE.InstancedMesh(gg, glowMat(), list.length);
       list.forEach((it, i) => setInstance(glow, i, it[0], it[1], it[2], it[3], it[4], it[5], it[6]));
       glow.instanceMatrix.needsUpdate = true; glow.name = `city-${kind}-glow`;
+      // each building switches on at its own point of dusk (thr on the 0..1 night scale); 7% never do
+      const n = list.length;
+      glow.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3).fill(1), 3);
+      const thr = new Float32Array(n), base = new Float32Array(n);
+      for (let i = 0; i < n; i++) thr[i] = R() < 0.07 ? 9 : 0.30 + R() * 0.45;
+      let tw = null;
+      if (kind === 'tower') { tw = new Float32Array(n); for (let i = 0; i < n; i++) tw[i] = R() * Math.PI * 2; }
       group.add(glow);
-      glowMats.push(glow.material);
+      glows.push({ mesh: glow, thr, base, tw });
     }
     count += list.length;
   }
@@ -125,13 +134,50 @@ export function createCities(world, network, terrain, occupancy) {
     group.add(mesh);
   }
 
-  const _c = new THREE.Color();
+  // sodium haze: a soft warm dome over each big city, seen from the country view at night
+  const haze = [];
+  const bigCities = centres.filter((c) => c.pop > 150000).sort((a, b) => b.pop - a.pop).slice(0, 8);
+  if (bigCities.length) {
+    const tex = radialSprite(128, 0.0, 1, 2.5);
+    for (const c of bigCities) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: C.streetLamp, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: true, sizeAttenuation: true }));
+      const size = 6 + 8 * Math.sqrt(c.pop / 450000);
+      sp.scale.set(size, size, 1);
+      sp.position.set(c.x, terrain.heightAt(c.x, c.z) + 0.4, c.z);
+      sp.renderOrder = 4; sp.visible = false; sp.name = `haze-${c.name}`;
+      group.add(sp);
+      haze.push(sp);
+    }
+  }
+
+  let lastNight = -1, lastOn = null;
   return {
-    group, count, heaters: heaters.length, centres,
-    update(night, lightsOn) {
-      const on = lightsOn ? 1 : Math.max(0.02, Math.min(1, (night - 0.4) * 2.2));
-      _c.setScalar(on);
-      for (const m of glowMats) m.color.copy(_c);
+    group, count, heaters: heaters.length, centres, glows, haze,
+    update(night, lightsOn, time = 0) {
+      // rewrite the window levels only when dusk has moved on (or the switch flipped)
+      if (lightsOn !== lastOn || Math.abs(night - lastNight) > 0.01) {
+        lastNight = night; lastOn = lightsOn;
+        for (const g of glows) {
+          const { thr, base } = g, col = g.mesh.instanceColor;
+          for (let i = 0; i < thr.length; i++) {
+            const on = Math.max(0.02, lightsOn ? 1 : smoothstep(thr[i], thr[i] + 0.08, night));
+            base[i] = on;
+            col.setXYZ(i, on, on, on);
+          }
+          col.needsUpdate = true;
+        }
+      }
+      // the towers twinkle faintly once it is dark (a small buffer, refreshed each frame)
+      if (night > 0.3 || lightsOn) {
+        for (const g of glows) {
+          if (!g.tw) continue;
+          const col = g.mesh.instanceColor;
+          for (let i = 0; i < g.tw.length; i++) { const v = g.base[i] * (0.85 + 0.15 * Math.sin(time * 1.7 + g.tw[i])); col.setXYZ(i, v, v, v); }
+          col.needsUpdate = true;
+        }
+      }
+      const o = 0.35 * smoothstep(0.45, 0.8, night);
+      for (const sp of haze) { sp.material.opacity = o; sp.visible = o > 0.02; }
     },
   };
 }

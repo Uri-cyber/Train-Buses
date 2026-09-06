@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OUTLINE_LAYER } from './post.js';
 import { Builder, stdMat, glowMat, rng } from './builder.js';
-import { C } from './palette.js';
+import { C, smoothstep } from './palette.js';
 import { labelTexture } from './stations.js';
 
 /**
@@ -212,7 +212,7 @@ export function createLandmarks(world, terrain, occupancy, network) {
         const o = Math.max(0, Math.min(1, (34 - d) / 12));
         sprites[i].material.opacity = o; sprites[i].visible = o > 0.02;
       });
-      if (glow) { _c.setScalar(lightsOn ? 1 : Math.max(0.05, Math.min(1, (night - 0.4) * 2.2))); glow.material.color.copy(_c); }
+      if (glow) { _c.setScalar(lightsOn ? 1 : Math.max(0.05, smoothstep(0.35, 0.65, night))); glow.material.color.copy(_c); }
     },
   };
 }

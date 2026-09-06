@@ -47,3 +47,5 @@ export function mixHex(a, b, t) {
 }
 export const clamp01 = (v) => Math.max(0, Math.min(1, v));
 export const smooth = (t) => { t = clamp01(t); return t * t * (3 - 2 * t); };
+/** Hermite step: 0 below a, 1 above b, smooth between */
+export const smoothstep = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };

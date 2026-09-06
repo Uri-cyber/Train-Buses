@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { OUTLINE_LAYER } from './post.js';
-import { Builder, stdMat, glowMat, setInstance, rng, paint } from './builder.js';
+import { Builder, stdMat, glowMat, setInstance, rng, paint, _m4 as M4, _q as Q, _v as V, _s as S } from './builder.js';
 import { labelTexture } from './labels.js';
-import { C } from './palette.js';
+import { C, smoothstep } from './palette.js';
 import { TRACK } from './rails.js';
 import { tripProgress, tripsForDay } from './timetable.js';
 
@@ -109,6 +109,11 @@ const CONSISTS = {
 const SPEEDS = { passenger: 0.42, heritage: 0.22, freight: 0.30 };  // km per second at lever = 0.5
 const ACCEL = 0.22;
 const GAP = 0.08 * SCALE;          // coupling gap between cars
+const MOVING_V = 0.02;             // below this a train is standing (km/s)
+let elapsed = 0;                   // seconds since start, for the coach sway
+const _e = new THREE.Euler();
+const wrapPi = (a) => ((a + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 export function createTrains(rails, terrain, stationsById = null, { schedule = null } = {}) {
   const group = new THREE.Group();
@@ -160,6 +165,9 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
     if (glowGeo) {
       glow = new THREE.InstancedMesh(glowGeo, glowMat(), n);
       glow.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      // per-car window level: coaches light up one by one at dusk, the last one carries a red tail
+      glow.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3).fill(1), 3);
+      glow.instanceColor.setUsage(THREE.DynamicDrawUsage);
       glow.name = `train-${name}-glow`;
       group.add(glow);
     }
@@ -188,7 +196,7 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
     };
     const clear = (pts) => pts.every(([x, z]) => placed.every(([px, pz]) => Math.hypot(px - x, pz - z) > 3.2));
     trains = plans.map((p, slot) => {
-      const cars = p.cars.map((t) => ({ type: t, idx: types[t].free.pop(), len: types[t].len }));
+      const cars = p.cars.map((t) => ({ type: t, idx: types[t].free.pop(), len: types[t].len, onAt: 0.30 + R() * 0.45, level: R() < 0.08 ? 0.15 : 0.75 + R() * 0.35 }));
       const total = cars.reduce((s, c) => s + c.len + GAP, 0);
       const kind = p.route.kind === 'heritage' ? 'heritage' : p.route.kind === 'freight' ? 'freight' : 'passenger';
       // start somewhere that overlaps no train already placed (shared corridors, junctions)
@@ -225,19 +233,35 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
     const off = t.side * TRACK.laneOffset;
     return { x: p.x + p.tz * off, z: p.z - p.tx * off };
   };
+  const yawAt = (lk, d, dir) => { const p = lk.at(d); return Math.atan2(p.tx * dir, p.tz * dir); };
+  // every car is placed about its own centre (position = the lane sample, which the
+  // rails check reads); pitch follows the grade, roll leans into the bend plus a
+  // whisper of sway on the move
   const place = (t) => {
     const lk = t.route.lookup;
     let back = 0;                                   // distance from the head, along the train
+    const moving = t.v > MOVING_V;
+    let carIndex = 0;
     for (const car of t.cars) {
       const dc = t.d - t.dir * (back + car.len / 2);
       const a = lane(lk.at(dc - t.dir * car.len * 0.34), t), b = lane(lk.at(dc + t.dir * car.len * 0.34), t);
       const x = (a.x + b.x) / 2, z = (a.z + b.z) / 2;
       const rot = Math.atan2(b.x - a.x, b.z - a.z);
       const y = t.route.heightAt(dc) + TRACK.railH;
+      // nose up on a climb: local +z points at sample b, a positive X rotation drops the nose
+      const ha = t.route.heightAt(dc - t.dir * car.len * 0.34), hb = t.route.heightAt(dc + t.dir * car.len * 0.34);
+      const pitch = -Math.atan2(hb - ha, car.len * 0.68);
+      // lean into the bend: yaw change over the car, scaled by speed (a left turn is a positive yaw change; +y leans to -x under a positive Z roll, so negate)
+      const turn = wrapPi(yawAt(lk, dc + t.dir * car.len * 0.6, t.dir) - yawAt(lk, dc - t.dir * car.len * 0.6, t.dir));
+      let roll = clamp(-turn * t.v * 2.5, -0.09, 0.09);
+      if (moving) roll += 0.010 * Math.sin(elapsed * 2.1 + carIndex * 1.9 + (t.slot | 0) * 0.7);
+      Q.setFromEuler(_e.set(pitch, rot, roll, 'YXZ'));
+      M4.compose(V.set(x, y, z), Q, S.set(1, 1, 1));
       const ty = types[car.type];
-      setInstance(ty.solid, car.idx, x, y, z, rot);
-      if (ty.glow) setInstance(ty.glow, car.idx, x, y, z, rot);
+      ty.solid.setMatrixAt(car.idx, M4);
+      if (ty.glow) ty.glow.setMatrixAt(car.idx, M4);
       back += car.len + GAP;
+      carIndex++;
     }
     const h = lk.at(t.d), hp = lane(h, t);
     t.head.x = hp.x; t.head.z = hp.z; t.head.y = t.route.heightAt(t.d) + TRACK.railH;
@@ -382,18 +406,24 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
     if (t.active) return true;
     if (!t.freeSlots.length) return false;
     t.slot = t.freeSlots.pop();
-    t.cars = SLOT_CARS.map((name) => ({ type: name, idx: types[name].free.pop(), len: types[name].len }));
+    t.cars = SLOT_CARS.map((name) => ({ type: name, idx: types[name].free.pop(), len: types[name].len, onAt: 0.30 + R() * 0.45, level: R() < 0.08 ? 0.15 : 0.75 + R() * 0.35 }));
     t.active = true;
+    activatedThisFrame = true;
     return true;
   };
   const deactivate = (t) => {
     if (!t.active) return;
-    for (const car of t.cars) { const ty = types[car.type]; ty.solid.setMatrixAt(car.idx, ZERO); if (ty.glow) ty.glow.setMatrixAt(car.idx, ZERO); ty.free.push(car.idx); }
+    for (const car of t.cars) {
+      const ty = types[car.type];
+      ty.solid.setMatrixAt(car.idx, ZERO);
+      if (ty.glow) { ty.glow.setMatrixAt(car.idx, ZERO); ty.glow.instanceColor.setXYZ(car.idx, 1, 1, 1); ty.glow.instanceColor.needsUpdate = true; }
+      ty.free.push(car.idx);
+    }
     beams.setMatrixAt(t.slot, ZERO);
     t.freeSlots.push(t.slot); t.slot = -1; t.cars = null; t.active = false; t.v = 0;
     if (t.plate) t.plate.visible = false;
   };
-  let replay = false, activeNow = 0, dayKey = null;
+  let replay = false, activeNow = 0, dayKey = null, activatedThisFrame = false;
   const runScheduled = (dt, clock) => {
     // the day's trips are chosen once per Israeli calendar day
     if (clock.ymd !== dayKey) { dayKey = clock.ymd; sched.selectDay(clock.ymd, clock.weekday); }
@@ -412,15 +442,18 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
       activeNow++;
       const d0 = run.stopD[prog.i], d1 = run.stopD[Math.min(prog.i + 1, run.stopD.length - 1)];
       const target = Math.max(t.total * 0.55, Math.min(t.route.length - t.total * 0.55, d0 + (d1 - d0) * prog.f));
-      t.v = dt > 0 ? Math.abs(target - t.d) / dt : 0;
-      if (t.v > 3) t.v = 0;                          // a jump (time scrubbed, just appeared) is not a speed
+      // a jump (time scrubbed, just appeared) is not a speed; otherwise smooth the frame-to-frame estimate
+      const raw = dt > 0 ? Math.abs(target - t.d) / dt : 0;
+      t.v = raw > 3 ? 0 : t.v * 0.8 + raw * 0.2;
+      t.phase = prog.phase; t.toDep = prog.toDep;
       t.d = target;
       t.dwell = prog.stopped ? 1 : 0;
       place(t);
     }
   };
 
-  const _c = new THREE.Color();
+  let lastNight = -1, lastOn = null;
+  for (const m of glowMats) m.color.setScalar(1);
   const _f = new THREE.Vector3();
   return {
     group, trains, types, SCALE, smoke, beams, scheduled,
@@ -438,6 +471,8 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
      * @param clock      { T: seconds after Israel midnight, ymd, weekday } for the timetable
      */
     update(dt, speedLever, night, lightsOn, focus = null, followedId = null, viewDist = 0, clock = null) {
+      elapsed += dt;
+      activatedThisFrame = false;
       if (scheduled) runScheduled(dt, clock || { T: 12 * 3600, ymd: '20260101', weekday: 4 });
       else {
         const factor = 0.15 + speedLever * 2.2;
@@ -481,9 +516,23 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
         ty.solid.instanceMatrix.needsUpdate = true;
         if (ty.glow) ty.glow.instanceMatrix.needsUpdate = true;
       }
-      const on = lightsOn ? 1 : Math.max(0.12, Math.min(1, (night - 0.35) * 2.2));
-      _c.setScalar(on);
-      for (const m of glowMats) m.color.copy(_c);
+      // windows: each coach comes up at its own moment of dusk, the last coach's panes read red.
+      // The buffers are rewritten only when dusk has moved, the switch flipped, or a train appeared
+      if (Math.abs(night - lastNight) > 0.01 || lightsOn !== lastOn || activatedThisFrame) {
+        lastNight = night; lastOn = lightsOn;
+        for (const t of trains) {
+          if (!t.active) continue;
+          const last = t.cars.length - 1;
+          for (let i = 0; i <= last; i++) {
+            const car = t.cars[i], ty = types[car.type];
+            if (!ty.glow) continue;
+            const c = Math.max(0.12, lightsOn ? 1 : car.level * smoothstep(car.onAt - 0.08, car.onAt + 0.08, night));
+            if (i === last) ty.glow.instanceColor.setXYZ(car.idx, Math.min(1.4, c * 1.25), c * 0.55, c * 0.55);
+            else ty.glow.instanceColor.setXYZ(car.idx, c, c, c);
+            ty.glow.instanceColor.needsUpdate = true;
+          }
+        }
+      }
 
       // smoke
       for (const t of trains) {
@@ -507,8 +556,7 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
 
       // headlights and plates
       const nearView = Math.max(0, Math.min(1, (160 - viewDist) / 60));
-      const beamsOn = lightsOn || night > 0.5;
-      const beamScale = beamsOn ? 1 : 0;
+      const beamScale = lightsOn ? 1 : smoothstep(0.38, 0.72, night);   // headlights fade up, never snap
       for (const t of trains) {
         if (!t.active) continue;
         const rot = Math.atan2(t.head.tx, t.head.tz);

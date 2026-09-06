@@ -54,9 +54,24 @@ export function tripsForDay(timetable, ymd, weekday) {
   return out;
 }
 
+/** the share of a hop spent accelerating (and again braking): about 90 s, never less than 8% or more than 40% */
+export const rampFraction = (secs) => Math.max(0.08, Math.min(0.4, 90 / Math.max(1, secs)));
+/**
+ * Trapezoid speed profile as a distance fraction: quadratic pull-away, steady
+ * cruise, quadratic braking. f(0) = 0, f(1) = 1, smooth at both joins and
+ * monotone for any ramp up to 0.4.
+ */
+export function tripCurve(u, secs) {
+  const ra = rampFraction(secs), k = 1 - ra;
+  if (u < ra) return u * u / (2 * ra * k);
+  if (u > 1 - ra) return 1 - (1 - u) * (1 - u) / (2 * ra * k);
+  return (u - ra / 2) / k;
+}
+
 /**
  * Where a trip is at time T (seconds after midnight): { i, f, stopped }
- * i = index of the stop just departed, f = 0..1 fraction to the next one;
+ * i = index of the stop just departed, f = 0..1 fraction to the next one,
+ * phase = 'accel' | 'cruise' | 'brake' | 'stop' (toDep = seconds until departure);
  * null when the trip has not started or is finished.
  */
 export function tripProgress(stops, T) {
@@ -64,13 +79,13 @@ export function tripProgress(stops, T) {
   if (T < first[2] - 45 || T > last[1] + 30) return null;
   for (let i = 0; i < stops.length - 1; i++) {
     const dep = stops[i][2], arr = stops[i + 1][1];
-    if (T < dep) return { i, f: 0, stopped: true };
+    if (T < dep) return { i, f: 0, stopped: true, phase: 'stop', toDep: dep - T };
     if (T < arr) {
       const u = (T - dep) / Math.max(1, arr - dep);
-      return { i, f: u * u * (3 - 2 * u), stopped: false };      // ease out of and into the stations
+      return { i, f: tripCurve(u, arr - dep), stopped: false, phase: u < rampFraction(arr - dep) ? 'accel' : u > 1 - rampFraction(arr - dep) ? 'brake' : 'cruise' };
     }
   }
-  return { i: stops.length - 1, f: 0, stopped: true };
+  return { i: stops.length - 1, f: 0, stopped: true, phase: 'stop', toDep: Infinity };
 }
 
 /** how many trips are moving at time T, for the status line and the quiet-hours fallback */

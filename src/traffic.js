@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OUTLINE_LAYER } from './post.js';
 import { makePathLookup, polylineLength } from './geo.js';
-import { C } from './palette.js';
+import { C, smoothstep } from './palette.js';
 import { Builder, stdMat, glowMat, setInstance, rng } from './builder.js';
 
 /**
@@ -146,7 +146,7 @@ export function createTraffic(world, terrain, mask) {
         }
         Object.values(types).forEach((t) => { t.solid.instanceMatrix.needsUpdate = true; if (t.glow) t.glow.instanceMatrix.needsUpdate = true; });
       }
-      const on = lightsOn ? 1 : Math.max(0.1, Math.min(1, (night - 0.35) * 2.2));
+      const on = lightsOn ? 1 : Math.max(0.1, smoothstep(0.35, 0.65, night));
       _c.setScalar(on);
       Object.values(types).forEach((t) => { if (t.glow) t.glow.material.color.copy(_c); });
     },

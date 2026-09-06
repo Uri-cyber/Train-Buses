@@ -121,7 +121,7 @@ export function createStations(network, rails, terrain) {
     byId: Object.fromEntries(stations.map((s) => [s.id, s])),
     select(id) { selected = id; selectedT = 8; },
     /** fade the plates by distance; the selected one stays up */
-    update(camera, dt) {
+    update(camera, dt, night = 0, lightsOn = false) {
       selectedT = Math.max(0, selectedT - dt);
       const camPos = camera.position;
       for (const s of stations) {
@@ -135,6 +135,8 @@ export function createStations(network, rails, terrain) {
         const k = s.id === selected && selectedT > 0 ? 1.35 : 1;
         s.sprite.scale.set(0.125 * k, 0.039 * k, 1);
       }
+      // the glass band is dull by day and warms up with the town
+      if (glowMesh) glowMesh.material.color.setScalar(lightsOn ? 1 : Math.max(0.08, Math.min(1, (night - 0.45) * 2.5)));
     },
   };
 }

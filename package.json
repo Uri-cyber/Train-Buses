@@ -10,7 +10,7 @@
     "preview": "vite preview --port 4173 --host 127.0.0.1",
     "data": "node scripts/fetch-natural-earth.mjs && node scripts/build-network.mjs",
     "fetch:osm": "node scripts/fetch-osm.mjs && node scripts/build-network.mjs",
-    "check": "node scripts/rails-check.mjs",
+    "check": "node scripts/trip-progress-test.mjs && node scripts/rails-check.mjs",
     "shots": "node scripts/screenshot.mjs",
     "test:controls": "node scripts/interaction-test.mjs",
     "fixture": "node scripts/osm-fixture.mjs && node scripts/timetable-fixture.mjs && node scripts/live-fixture.mjs",
