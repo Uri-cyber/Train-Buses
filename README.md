@@ -82,9 +82,11 @@ route is computed through them, and the train is placed by the clock: at
 speed. Trips sharing a calling pattern share a route, so a thousand trips a
 day cost little.
 
-- Real time means real speed: a train covers its own length in a minute.
-  `?speed=6` runs the timetable six times faster than the clock (positions
-  then no longer match the wall clock, the sequence still does).
+- Real time means real speed, and on a map of a whole country a train covers
+  its own length in a minute, which reads as standing still. So by default the
+  timetable runs eight times faster than the clock, starting from now: the
+  trains, routes and order are real, the positions run ahead of the wall
+  clock. `?speed=1` is true real time, `?speed=20` a time-lapse.
 - Shabbat and the small hours are quiet, so when fewer than three trains are
   running the page replays a weekday morning and the status line says so.
 - No feed, no trains? `?trains=toy` brings back the made-up service. The

@@ -10,7 +10,7 @@ import { HOME } from './camera.js';
  */
 const FOLLOW_S = 32;      // seconds riding with one train
 const RESUME_S = 20;      // seconds of quiet before the tour resumes
-const RADIUS = 8, UP = 3.3;          // chase camera: km from the train and above it
+const RADIUS = 6.5, UP = 2.8;        // chase camera: km from the train and above it
 const ORBIT = 0.11;       // rad/s: the camera circles the train slowly, so it is always on the move
 const MOVING = 0.004;     // km/s: below this a train counts as standing (real trains do 0.02 to 0.045)
 

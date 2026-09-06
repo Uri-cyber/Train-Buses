@@ -60,7 +60,9 @@ let network = bundledNetwork;
 let built = null;
 let timetable = null;                              // the real Israel Railways timetable, once loaded
 const TOY = params.get('trains') === 'toy';        // ?trains=toy: the made-up fleet instead
-const TIME_SCALE = Math.max(1, Math.min(60, +params.get('speed') || 1));   // ?speed=6: run the timetable six times faster than the clock
+// Real trains at real speed barely move on a map of a whole country, so the timetable
+// runs eight times faster than the clock by default; ?speed=1 is true real time.
+const TIME_SCALE = Math.max(1, Math.min(60, +params.get('speed') || 8));
 let ttClock = null;                               // the sped-up timetable clock, seconds after midnight
 const scheduleFor = (net, rails) => timetable && !TOY ? { timetable, router: makeRouter(net), P: terrain.P, makeRoute: rails.makeRoute } : null;
 function makeTrains(net, rails, stations) { return createTrains(rails, terrain, stations.byId, { schedule: scheduleFor(net, rails) }); }
