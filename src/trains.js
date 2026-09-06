@@ -119,7 +119,7 @@ export function createTrains(rails, terrain, stationsById = null) {
   for (const route of rails.routes) {
     const consist = route.kind === 'heritage' ? 'heritage'
       : route.kind === 'freight' ? (route.id === 'phosphate' ? 'freightHopper' : 'freightFlat') : 'passenger';
-    const n = Math.max(1, Math.min(3, 1 + Math.floor(route.length / 90)));
+    const n = Math.max(1, Math.min(4, 1 + Math.floor(route.length / 50)));
     const nCars = consist === 'passenger' ? (route.length < 40 ? 3 : 4)
       : consist === 'heritage' ? 4 : 5;
     for (let k = 0; k < n; k++) {
