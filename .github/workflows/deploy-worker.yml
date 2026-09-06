@@ -1,0 +1,30 @@
+name: Deploy the live-delays proxy to Cloudflare
+
+# Publishes worker/rail-live.js as a Cloudflare Worker. Needs one repository
+# secret, CLOUDFLARE_API_TOKEN (template "Edit Cloudflare Workers"), and, when
+# the token can see more than one account, CLOUDFLARE_ACCOUNT_ID.
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/voxel-model-railway-qsar92]
+    paths: [worker/**]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Deploy
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "::error::the repository secret CLOUDFLARE_API_TOKEN is missing"; exit 1; }
+          npx --yes wrangler@3 deploy 2>&1 | tee deploy.log
+          URL=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' deploy.log | head -1)
+          echo "worker url: $URL"
+          [ -n "$URL" ] && curl -sS -m 40 "$URL/live" | head -c 300; echo
