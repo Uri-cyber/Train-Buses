@@ -175,7 +175,7 @@ export function createTrains(rails, terrain, stationsById = null) {
     }
     placed.push(...pts);
     return {
-      id: p.id, route: p.route, cars, total, kind, d, dir: p.dir, side: p.dir, v: 0, dwell: 0, stopIdx: -1,
+      id: p.id, route: p.route, cars, total, kind, d, dir: p.dir, side: p.dir, v: 0, dwell: 0, stopIdx: -1, blockedT: 0, graceT: 0,
       head: { x: 0, y: 0, z: 0, tx: 0, tz: 1 },      // world position of the front, travel tangent
     };
   });
@@ -223,8 +223,12 @@ export function createTrains(rails, terrain, stationsById = null) {
   // stop before any train crossing the line ahead (junctions, station throats)
   const BODY = 0.62 * SCALE;                          // body width, km
   const crossing = (t, o) => {
-    // does any part of o lie in the box just ahead of t's head?
+    // does any part of o lie in the box just ahead of t's head? Trains running
+    // parallel on the other track are not in the way, only trains at an angle
+    // or genuinely on our line
     const H = t.head;
+    const dot = Math.abs(H.tx * o.head.tx + H.tz * o.head.tz);
+    const tol = dot > 0.6 ? 0.55 : BODY + 0.4;
     const n = Math.max(2, Math.ceil(o.total / 1.5));
     let nearest = Infinity;
     for (let i = 0; i <= n; i++) {
@@ -233,13 +237,14 @@ export function createTrains(rails, terrain, stationsById = null) {
       const dx = px - H.x, dz = pz - H.z;
       const ahead = dx * H.tx + dz * H.tz;
       const lateral = Math.abs(dx * H.tz - dz * H.tx);
-      if (ahead > -0.3 && ahead < 6.5 && lateral < BODY + 0.5) nearest = Math.min(nearest, ahead);
+      if (ahead > -0.3 && ahead < 5.0 && lateral < tol) nearest = Math.min(nearest, ahead);
     }
     return nearest;
   };
   const headwayLimit = (t) => {
     let limit = Infinity;
     const H = t.head;
+    t.heldBy = null;
     for (const o of trains) {
       if (o === t) continue;
       const dot = H.tx * o.head.tx + H.tz * o.head.tz;
@@ -251,12 +256,13 @@ export function createTrains(rails, terrain, stationsById = null) {
         if (ahead <= o.total + 2) {
           // overlapping (trains start that way, or met at a junction): the one behind, or on a
           // tie the higher id, drops back until the gap opens
-          if (ahead > 1.0 || t.id > o.id) limit = Math.min(limit, Math.max(0, o.v * 0.4 - 0.05));
+          if (ahead > 1.0 || t.id > o.id) { const l = Math.max(0, o.v * 0.4 - 0.05); if (l < limit) { limit = l; t.heldBy = `overlap ${o.id} ahead=${ahead.toFixed(1)} lat=${lateral.toFixed(2)}`; } }
           continue;
         }
         // keep a gap that closes only as fast as braking allows
         const room = ahead - o.total - 2;
-        limit = Math.min(limit, o.v + Math.sqrt(2 * ACCEL * room));
+        const l = o.v + Math.sqrt(2 * ACCEL * room);
+        if (l < limit) { limit = l; t.heldBy = `follow ${o.id} ahead=${ahead.toFixed(1)}`; }
         continue;
       }
       if (Math.hypot(dx, dz) > o.total + 6) continue;
@@ -266,7 +272,8 @@ export function createTrains(rails, terrain, stationsById = null) {
       if (near === Infinity) continue;
       const theirs = crossing(o, t);
       if (theirs !== Infinity && (near < theirs || (near === theirs && t.id < o.id))) continue;
-      limit = Math.min(limit, Math.sqrt(2 * ACCEL * Math.max(0, near - 1.4)));
+      const l = Math.sqrt(2 * ACCEL * Math.max(0, near - 1.4));
+      if (l < limit) { limit = l; t.heldBy = `cross ${o.id} near=${near.toFixed(1)} dot=${dot.toFixed(2)} lat=${lateral.toFixed(2)} ov=${o.v.toFixed(2)}`; }
     }
     return limit;
   };
@@ -355,22 +362,32 @@ export function createTrains(rails, terrain, stationsById = null) {
       const factor = 0.15 + speedLever * 2.2;
       for (const t of trains) {
         const vmax = SPEEDS[t.kind] * factor;
-        // slide over to the other track after turning round
-        const ds = Math.max(-0.5 * dt, Math.min(0.5 * dt, t.dir - t.side));
+        // slide over to the other track after turning round, and only then set off
+        const ds = Math.max(-0.7 * dt, Math.min(0.7 * dt, t.dir - t.side));
         t.side += ds;
-        if (t.dwell > 0) { t.dwell -= dt; t.v = 0; }
+        if (t.dwell > 0 || Math.abs(t.dir - t.side) > 0.02) { t.dwell = Math.max(0, t.dwell - dt); t.v = 0; }
         else {
           const target = nextStop(t);
           const remaining = Math.abs(target - t.d);
           let allowed = Math.min(vmax, Math.sqrt(2 * ACCEL * Math.max(0, remaining - 0.02)));
-          allowed = Math.min(allowed, headwayLimit(t));
+          // other trains may hold us; but a train held for long is in a knot of trains all
+          // waiting for each other, so it gets a few seconds of right of way to untie it
+          if (t.graceT > 0) t.graceT -= dt;
+          else {
+            const held = headwayLimit(t);
+            if (held < allowed) {
+              allowed = held;
+              if (held < 0.03) { t.blockedT += dt; if (t.blockedT > 9) { t.blockedT = 0; t.graceT = 12; } }
+              else t.blockedT = Math.max(0, t.blockedT - dt);
+            } else t.blockedT = Math.max(0, t.blockedT - dt);
+          }
           t.v = t.v < allowed ? Math.min(allowed, t.v + ACCEL * dt) : allowed;
           const step = Math.min(t.v * dt, remaining);
           t.d += t.dir * step;
           if (remaining - step < 0.03) {
             // arrived: dwell, and turn round at the ends of the line
             const atEnd = t.d <= t.total * 0.55 + 0.05 || t.d >= t.route.length - t.total * 0.55 - 0.05;
-            t.dwell = atEnd ? 3.5 : 1.5;
+            t.dwell = atEnd ? 4 : 1.5;
             if (atEnd) t.dir = t.d <= t.route.length / 2 ? 1 : -1;
           }
         }

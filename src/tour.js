@@ -15,7 +15,7 @@ const ORBIT = 0.11;       // rad/s: the camera circles the train slowly, so it i
 
 export function createTour({ cam, getTrains, terrain, state, hint }) {
   let mode = 'user';      // user | flight | follow
-  let followId = null, followT = 0, phase = 0, legs = 0;
+  let followId = null, followT = 0, phase = 0, legs = 0, stuckT = 0;
   let lastInput = performance.now();
   const visited = [];
   const _pos = new THREE.Vector3(), _target = new THREE.Vector3();
@@ -98,6 +98,9 @@ export function createTour({ cam, getTrains, terrain, state, hint }) {
       }
       const t = getTrains().find((x) => x.id === followId);
       if (!t) { startLeg(); return; }
+      // a train stuck behind others is no fun to watch: move on after a few seconds of it
+      stuckT = t.dwell <= 0 && t.v < 0.05 ? stuckT + dt : 0;
+      if (stuckT > 6) { stuckT = 0; startLeg(); return; }
       followT += dt; phase += dt * ORBIT;
       const { pos, target } = chasePoint(t);
       cam.chase(pos, target, dt);
