@@ -66,6 +66,7 @@ if (!live) {
   await page.goto(URL, { waitUntil: 'load', timeout: 90000 });
   await page.waitForFunction(() => !!window.__app, null, { timeout: 120000 });
   await page.evaluate(() => { window.__app.start(); window.__app.tour.set(false); });      // past the opening overlay; the auto tour would move the camera under us
+  await page.waitForFunction(() => !window.__app.timetable.pending, null, { timeout: 60000 });
   if (/[?&]osm=/.test(URL)) await page.waitForFunction(() => window.__app.liveStatus?.applied || window.__app.liveStatus?.failed || window.__app.liveStatus?.thin, null, { timeout: 180000 });
   await page.waitForTimeout(1500);
   const report = await page.evaluate(() => {
@@ -75,6 +76,7 @@ if (!live) {
     const m = new a.THREE.Matrix4();
     const v = new a.THREE.Vector3();
     for (const t of a.trains.trains) {
+      if (!t.active) continue;
       out.trains++;
       let back = 0;
       for (const car of t.cars) {
@@ -109,6 +111,8 @@ if (!live) {
     return out;
   });
   const live = await page.evaluate(() => window.__app.liveStatus);
+  const tt = await page.evaluate(() => ({ ...window.__app.timetable, scheduled: window.__app.trains.scheduled, replay: window.__app.trains.replay, active: window.__app.trains.activeCount }));
+  console.log('timetable:', JSON.stringify(tt));
   await browser.close();
   if (/[?&]osm=/.test(URL) && !live?.applied) fail('live network not applied', JSON.stringify(live));
   if (live?.applied) console.log(`live network applied from ${live.source}: ${live.edges} edges, ${live.stations} stations, ${live.routes} routes in ${live.ms} ms`);

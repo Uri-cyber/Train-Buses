@@ -12,6 +12,7 @@ const FOLLOW_S = 32;      // seconds riding with one train
 const RESUME_S = 20;      // seconds of quiet before the tour resumes
 const RADIUS = 8, UP = 3.3;          // chase camera: km from the train and above it
 const ORBIT = 0.11;       // rad/s: the camera circles the train slowly, so it is always on the move
+const MOVING = 0.004;     // km/s: below this a train counts as standing (real trains do 0.02 to 0.045)
 
 export function createTour({ cam, getTrains, terrain, state, hint }) {
   let mode = 'user';      // user | flight | follow
@@ -39,13 +40,13 @@ export function createTour({ cam, getTrains, terrain, state, hint }) {
     let best = null, bd = Infinity;
     const current = trains.find((t) => t.id === followId);
     for (const t of trains) {
-      if (t.id === followId || t.dwell > 0 || t.v < 0.05) continue;
+      if (t.id === followId || t.active === false || t.dwell > 0 || t.v < MOVING) continue;
       let cost = Math.hypot(t.head.x - from.x, t.head.z - from.z);
       if (current && t.kind === current.kind) cost += 80;
       if (visited.includes(t.id)) cost += 200;
       if (cost < bd) { bd = cost; best = t; }
     }
-    return best || trains.find((t) => t.id !== followId) || trains[0] || null;
+    return best || trains.find((t) => t.id !== followId && t.active !== false) || trains.find((t) => t.active !== false) || null;
   };
 
   const showHint = (on) => { if (hint) hint.hidden = !on; };
@@ -97,10 +98,10 @@ export function createTour({ cam, getTrains, terrain, state, hint }) {
         return;
       }
       const t = getTrains().find((x) => x.id === followId);
-      if (!t) { startLeg(); return; }
-      // a train stuck behind others is no fun to watch: move on after a few seconds of it
-      stuckT = t.dwell <= 0 && t.v < 0.05 ? stuckT + dt : 0;
-      if (stuckT > 6) { stuckT = 0; startLeg(); return; }
+      if (!t || t.active === false) { startLeg(); return; }
+      // a train that just stands there is no fun to watch: move on after a few seconds of it
+      stuckT = t.v < MOVING ? stuckT + dt : 0;
+      if (stuckT > 8) { stuckT = 0; startLeg(); return; }
       followT += dt; phase += dt * ORBIT;
       const { pos, target } = chasePoint(t);
       cam.chase(pos, target, dt);

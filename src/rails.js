@@ -159,7 +159,9 @@ export function createRails(network, terrain) {
   group.add(portalMesh);
 
   /* --------------------------------------------------- route profiles */
-  const routes = network.routes.map((r) => {
+  // drape any route ({ edges, pts, ... }) on the smoothed profiles: the built-in
+  // routes now, timetable trips later
+  const makeRoute = (r) => {
     const lookup = makePathLookup(r.pts);
     const D = [], H = [];
     let base = 0;
@@ -182,7 +184,8 @@ export function createRails(network, terrain) {
       return H[lo] + (H[hi] - H[lo]) * t + TRACK.lift;
     };
     return { ...r, lookup, heightAt, length: lookup.length };
-  });
+  };
+  const routes = network.routes.map(makeRoute);
 
-  return { group, routes, profiles, stats: { sleepers: sleepers.length, piers: piers.length, portals: portals.length, trackVerts: positions.length / 3 } };
+  return { group, routes, profiles, makeRoute, stats: { sleepers: sleepers.length, piers: piers.length, portals: portals.length, trackVerts: positions.length / 3 } };
 }

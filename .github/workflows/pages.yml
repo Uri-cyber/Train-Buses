@@ -3,6 +3,8 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main, master, claude/voxel-model-railway-qsar92]
+  schedule:
+    - cron: '20 1 * * *'        # 04:20 Israel time: a fresh timetable every day
   workflow_dispatch:
 
 permissions:
@@ -31,6 +33,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # The real Israel Railways timetable, from the Ministry of Transport's GTFS feed.
+      # If the feed is down the page falls back to a made-up service and says so.
+      - name: Fetch the Israel Railways timetable
+        continue-on-error: true
+        run: |
+          node scripts/fetch-gtfs.mjs gtfs.zip public/timetable.json
+          rm -f gtfs.zip
+          ls -la public/timetable.json
       - name: Build
         run: npm run build
       - name: Chromium for the scene checks

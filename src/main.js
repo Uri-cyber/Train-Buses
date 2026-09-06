@@ -22,6 +22,8 @@ import { createLandmarks } from './landmarks.js';
 import { createHud } from './hud.js';
 import { createTour } from './tour.js';
 import { createMusic } from './music.js';
+import { loadTimetable, israelDate } from './timetable.js';
+import { makeRouter } from './router.js';
 import { makeProjection } from './geo.js';
 
 const params = new URLSearchParams(location.search);
@@ -56,10 +58,16 @@ scene.add(traffic.group);
 /* -------------------------- everything that depends on the rail network */
 let network = bundledNetwork;
 let built = null;
+let timetable = null;                              // the real Israel Railways timetable, once loaded
+const TOY = params.get('trains') === 'toy';        // ?trains=toy: the made-up fleet instead
+const TIME_SCALE = Math.max(1, Math.min(60, +params.get('speed') || 1));   // ?speed=6: run the timetable six times faster than the clock
+let ttClock = null;                               // the sped-up timetable clock, seconds after midnight
+const scheduleFor = (net, rails) => timetable && !TOY ? { timetable, router: makeRouter(net), P: terrain.P, makeRoute: rails.makeRoute } : null;
+function makeTrains(net, rails, stations) { return createTrains(rails, terrain, stations.byId, { schedule: scheduleFor(net, rails) }); }
 function buildNetworkObjects(net) {
   const rails = createRails(net, terrain);
   const stations = createStations(net, rails, terrain);
-  const trains = createTrains(rails, terrain, stations.byId);
+  const trains = makeTrains(net, rails, stations);
   const occupancy = makeOccupancy(net, world, terrain);
   const cities = createCities(world, net, terrain, occupancy);
   const landmarks = createLandmarks(world, terrain, occupancy, net);
@@ -79,6 +87,15 @@ function disposeNetworkObjects(b) {
   }
 }
 built = buildNetworkObjects(network);
+/** replace the fleet alone (the timetable arrived) */
+function swapTrains() {
+  const old = built.trains;
+  scene.remove(old.group);
+  old.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : []; for (const m of mats) { if (m.map) m.map.dispose(); m.dispose(); } });
+  built.trains = makeTrains(network, built.rails, built.stations);
+  built.groups[built.groups.indexOf(old.group)] = built.trains.group;
+  scene.add(built.trains.group);
+}
 
 /* ---------------------------------------------------------------- state */
 const state = {
@@ -161,7 +178,7 @@ const clock = new THREE.Clock();
 let frames = 0, fpsT = 0;
 renderer.info.autoReset = false;
 const app = {
-  scene, camera: cam.camera, renderer, state, cam, terrain, sky, lights, post, world, traffic, hud, tour, music, fps: 0,
+  scene, camera: cam.camera, renderer, state, cam, terrain, sky, lights, post, world, traffic, hud, tour, music, fps: 0, timetable: { loaded: false, pending: true },
   liveStatus: { source: 'bundled', applied: false },
   get network() { return network; },
   get rails() { return built.rails; }, get stations() { return built.stations; }, get trains() { return built.trains; },
@@ -173,7 +190,11 @@ function frame() {
   const dt = Math.min(clock.getDelta(), 0.1);
   if (state.autoSun) state.hour = israelClock().hour;
   const skyState = sky.update(state.hour, dt, cam.camera.position);
-  built.trains.update(dt, state.speed, 1 - skyState.day, state.lights, cam.controls.target, tour.trainId, cam.distance());
+  const today = israelDate();
+  // the timetable runs on Israel's clock; with ?speed it runs ahead of it, wrapping at midnight
+  if (TIME_SCALE > 1) ttClock = ((ttClock ?? state.hour * 3600) + dt * TIME_SCALE) % 86400;
+  const T = TIME_SCALE > 1 ? ttClock : state.hour * 3600;
+  built.trains.update(dt, state.speed, 1 - skyState.day, state.lights, cam.controls.target, tour.trainId, cam.distance(), { T, ymd: today.ymd, weekday: today.weekday });
   traffic.update(dt, state.traffic, 1 - skyState.day, state.lights);
   tour.update(dt);                 // after the trains moved, before the camera settles
   cam.update(dt);
@@ -213,6 +234,25 @@ window.__app = Object.assign(Object.create(app), {
   horn: () => { const t = built.trains.nearestTo(cam.controls.target); (t && t.kind === 'heritage' ? whistle : horn)(); },
   info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, fps: app.fps }),
 });
+
+/* ------------------------------------------------ the real timetable */
+const ttEl = document.getElementById('timetable');
+const ttStatus = () => {
+  if (!ttEl) return;
+  const tr = built.trains;
+  if (!tr.scheduled) { ttEl.innerHTML = '<span dir="rtl">רכבות: שירות מדומה (אין לוח זמנים)</span><span dir="ltr">Trains: made-up service (no timetable)</span>'; return; }
+  const when = new Date(timetable.fetched).toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' });
+  const scale = TIME_SCALE > 1 ? ` · ×${TIME_SCALE}` : '';
+  const he = tr.replay ? `לוח זמנים: רכבת ישראל, עודכן ${when} · שקט עכשיו, משדר בוקר יום חול${scale}` : `לוח זמנים: רכבת ישראל, עודכן ${when} · ${tr.activeCount} רכבות בדרך${scale}`;
+  const en = tr.replay ? `Timetable: Israel Railways (MOT GTFS), updated ${when} · quiet now, replaying a weekday morning${scale}` : `Timetable: Israel Railways (MOT GTFS), updated ${when} · ${tr.activeCount} trains running${scale}`;
+  ttEl.innerHTML = `<span dir="rtl">${he}</span><span dir="ltr">${en}</span>`;
+};
+loadTimetable('./timetable.json').then((tt) => {
+  if (tt && !TOY) { timetable = tt; swapTrains(); app.timetable = { loaded: true, trips: tt.trips.length, fetched: tt.fetched }; }
+  else app.timetable = { loaded: false };
+  ttStatus();
+}).catch((e) => { console.warn('timetable failed', e); app.timetable = { loaded: false, error: String(e) }; ttStatus(); });
+setInterval(ttStatus, 5000);
 
 /* ------------------------------------------- the live network from OpenStreetMap */
 const statusEl = document.getElementById('status');

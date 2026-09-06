@@ -4,6 +4,7 @@ import { Builder, stdMat, glowMat, setInstance, rng, paint } from './builder.js'
 import { labelTexture } from './labels.js';
 import { C } from './palette.js';
 import { TRACK } from './rails.js';
+import { tripProgress, tripsForDay } from './timetable.js';
 
 /**
  * Rolling stock and its motion. Three families: modern Israel Railways
@@ -109,29 +110,39 @@ const SPEEDS = { passenger: 0.42, heritage: 0.22, freight: 0.30 };  // km per se
 const ACCEL = 0.22;
 const GAP = 0.08 * SCALE;          // coupling gap between cars
 
-export function createTrains(rails, terrain, stationsById = null) {
+export function createTrains(rails, terrain, stationsById = null, { schedule = null } = {}) {
   const group = new THREE.Group();
   group.name = 'trains';
   const R = rng(99);
+  const scheduled = !!schedule;
 
-  // plan the trains: more on long routes, alternating directions
+  /* ---------------------------------------------------- what runs */
+  // toy mode: a made-up service, more trains on long routes, alternating directions
   const plans = [];
-  for (const route of rails.routes) {
-    const consist = route.kind === 'heritage' ? 'heritage'
-      : route.kind === 'freight' ? (route.id === 'phosphate' ? 'freightHopper' : 'freightFlat') : 'passenger';
-    const n = Math.max(1, Math.min(4, 1 + Math.floor(route.length / 50)));
-    const nCars = consist === 'passenger' ? (route.length < 40 ? 3 : 4)
-      : consist === 'heritage' ? 4 : 5;
-    for (let k = 0; k < n; k++) {
-      const cars = CONSISTS[consist].slice(0, nCars);
-      const dir = k % 2 === 0 ? 1 : -1;
-      plans.push({ id: `${route.id}#${k}`, route, consist, cars, dir, start: ((k + 0.5) / n + (R() - 0.5) * 0.1) * route.length });
+  if (!scheduled) {
+    for (const route of rails.routes) {
+      const consist = route.kind === 'heritage' ? 'heritage'
+        : route.kind === 'freight' ? (route.id === 'phosphate' ? 'freightHopper' : 'freightFlat') : 'passenger';
+      const n = Math.max(1, Math.min(4, 1 + Math.floor(route.length / 50)));
+      const nCars = consist === 'passenger' ? (route.length < 40 ? 3 : 4)
+        : consist === 'heritage' ? 4 : 5;
+      for (let k = 0; k < n; k++) {
+        const cars = CONSISTS[consist].slice(0, nCars);
+        const dir = k % 2 === 0 ? 1 : -1;
+        plans.push({ id: `${route.id}#${k}`, route, consist, cars, dir, start: ((k + 0.5) / n + (R() - 0.5) * 0.1) * route.length });
+      }
     }
   }
 
-  // instanced meshes per vehicle type
+  // timetable mode: every trip of the day, on a route computed through its calling points
+  const sched = scheduled ? prepareSchedule(schedule, rails, stationsById) : null;
+  const SLOT_CARS = CONSISTS.passenger.slice(0, 4);
+
+  // instanced meshes per vehicle type; in timetable mode a pool of slots big
+  // enough for the busiest moment of the day
   const counts = {};
-  for (const p of plans) for (const t of p.cars) counts[t] = (counts[t] || 0) + 1;
+  if (scheduled) { for (const t of SLOT_CARS) counts[t] = (counts[t] || 0) + sched.slots; }
+  else for (const p of plans) for (const t of p.cars) counts[t] = (counts[t] || 0) + 1;
   const types = {};
   for (const [name, spec] of Object.entries(CATALOGUE)) {
     const n = counts[name] || 0;
@@ -152,33 +163,49 @@ export function createTrains(rails, terrain, stationsById = null) {
       glow.name = `train-${name}-glow`;
       group.add(glow);
     }
-    types[name] = { solid, glow, next: 0, len: spec.len * SCALE * ZS };
+    const free = [];
+    for (let i = n - 1; i >= 0; i--) free.push(i);
+    types[name] = { solid, glow, next: 0, free, len: spec.len * SCALE * ZS };
   }
+  const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+  for (const ty of Object.values(types)) for (let i = 0; i < ty.solid.count; i++) { ty.solid.setMatrixAt(i, ZERO); if (ty.glow) ty.glow.setMatrixAt(i, ZERO); }
 
-  const placed = [];                                 // sampled body points of trains placed so far
-  const bodyPoints = (route, d, dir, total) => {
-    const pts = [];
-    for (let back = 0; back <= total; back += 1.2) { const p = route.lookup.at(d - dir * back); pts.push([p.x, p.z]); }
-    return pts;
-  };
-  const clear = (pts) => pts.every(([x, z]) => placed.every(([px, pz]) => Math.hypot(px - x, pz - z) > 3.2));
-  const trains = plans.map((p) => {
-    const cars = p.cars.map((t) => ({ type: t, idx: types[t].next++, len: types[t].len }));
-    const total = cars.reduce((s, c) => s + c.len + GAP, 0);
-    const kind = p.route.kind === 'heritage' ? 'heritage' : p.route.kind === 'freight' ? 'freight' : 'passenger';
-    // start somewhere that overlaps no train already placed (shared corridors, junctions)
-    const lo = total * 0.55, hi = p.route.length - total * 0.55;
-    let d = Math.max(lo, Math.min(hi, p.start)), pts = bodyPoints(p.route, d, p.dir, total);
-    for (let k = 1; k <= 40 && !clear(pts); k++) {
-      d = lo + ((p.start - lo + k * 7.3) % Math.max(1, hi - lo));
-      pts = bodyPoints(p.route, d, p.dir, total);
-    }
-    placed.push(...pts);
-    return {
-      id: p.id, route: p.route, cars, total, kind, d, dir: p.dir, side: p.dir, v: 0, dwell: 0, stopIdx: -1, blockedT: 0, graceT: 0,
-      head: { x: 0, y: 0, z: 0, tx: 0, tz: 1 },      // world position of the front, travel tangent
+  let trains;
+  const maxSlots = scheduled ? sched.slots : plans.length;
+  if (scheduled) {
+    const freeSlots = [];
+    for (let i = maxSlots - 1; i >= 0; i--) freeSlots.push(i);
+    trains = sched.runs.map((run) => ({
+      id: run.id, route: run.route, cars: null, total: run.total, kind: 'passenger', d: run.stopD[0], dir: 1, side: 1, v: 0, dwell: 0,
+      head: { x: 0, y: 0, z: 0, tx: 0, tz: 1 }, active: false, slot: -1, sched: run, freeSlots,
+    }));
+  } else {
+    const placed = [];                               // sampled body points of trains placed so far
+    const bodyPoints = (route, d, dir, total) => {
+      const pts = [];
+      for (let back = 0; back <= total; back += 1.2) { const p = route.lookup.at(d - dir * back); pts.push([p.x, p.z]); }
+      return pts;
     };
-  });
+    const clear = (pts) => pts.every(([x, z]) => placed.every(([px, pz]) => Math.hypot(px - x, pz - z) > 3.2));
+    trains = plans.map((p, slot) => {
+      const cars = p.cars.map((t) => ({ type: t, idx: types[t].free.pop(), len: types[t].len }));
+      const total = cars.reduce((s, c) => s + c.len + GAP, 0);
+      const kind = p.route.kind === 'heritage' ? 'heritage' : p.route.kind === 'freight' ? 'freight' : 'passenger';
+      // start somewhere that overlaps no train already placed (shared corridors, junctions)
+      const lo = total * 0.55, hi = p.route.length - total * 0.55;
+      let d = Math.max(lo, Math.min(hi, p.start)), pts = bodyPoints(p.route, d, p.dir, total);
+      for (let k = 1; k <= 40 && !clear(pts); k++) {
+        d = lo + ((p.start - lo + k * 7.3) % Math.max(1, hi - lo));
+        pts = bodyPoints(p.route, d, p.dir, total);
+      }
+      placed.push(...pts);
+      return {
+        id: p.id, route: p.route, cars, total, kind, d, dir: p.dir, side: p.dir, v: 0, dwell: 0, stopIdx: -1, blockedT: 0, graceT: 0,
+        head: { x: 0, y: 0, z: 0, tx: 0, tz: 1 },    // world position of the front, travel tangent
+        active: true, slot,
+      };
+    });
+  }
 
   const glowMats = Object.values(types).filter((t) => t.glow).map((t) => t.glow.material);
 
@@ -198,7 +225,6 @@ export function createTrains(rails, terrain, stationsById = null) {
     const off = t.side * TRACK.laneOffset;
     return { x: p.x + p.tz * off, z: p.z - p.tx * off };
   };
-
   const place = (t) => {
     const lk = t.route.lookup;
     let back = 0;                                   // distance from the head, along the train
@@ -217,7 +243,7 @@ export function createTrains(rails, terrain, stationsById = null) {
     t.head.x = hp.x; t.head.z = hp.z; t.head.y = t.route.heightAt(t.d) + TRACK.railH;
     t.head.tx = h.tx * t.dir; t.head.tz = h.tz * t.dir;
   };
-  for (const t of trains) place(t);
+  for (const t of trains) if (t.active) place(t);
 
   // the closest a train may run to the one ahead, given both speeds; and a
   // stop before any train crossing the line ahead (junctions, station throats)
@@ -291,7 +317,6 @@ export function createTrains(rails, terrain, stationsById = null) {
   group.add(smoke);
   const puffs = Array.from({ length: PUFFS }, () => ({ x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, age: PUFF_LIFE, big: 1 }));
   let puffNext = 0;
-  const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
   for (let i = 0; i < PUFFS; i++) smoke.setMatrixAt(i, ZERO);
   const SMOKE = {
     heritage: { rate: 7, colour: [0.96, 0.96, 0.96], at: [0, 0.74 * SCALE + 0.16 * SCALE, 0.62 * SCALE * ZS], big: 1.0 },
@@ -313,7 +338,8 @@ export function createTrains(rails, terrain, stationsById = null) {
 
   // headlights: an additive cone ahead of every train, on at night
   const beamGeo = new THREE.ConeGeometry(0.55 * SCALE, 2.2 * SCALE, 12, 1, true).rotateX(-Math.PI / 2).translate(0, 0, 1.1 * SCALE);
-  const beams = new THREE.InstancedMesh(beamGeo, new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, side: THREE.DoubleSide }), trains.length);
+  const beams = new THREE.InstancedMesh(beamGeo, new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, side: THREE.DoubleSide }), Math.max(1, maxSlots));
+  for (let i = 0; i < beams.count; i++) beams.setMatrixAt(i, ZERO);
   beams.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   beams.name = 'headlights'; beams.renderOrder = 5;
   group.add(beams);
@@ -328,7 +354,8 @@ export function createTrains(rails, terrain, stationsById = null) {
     for (let i = stops.length - 1; i >= 0; i--) if (stops[i].d < t.d - skip) return stops[i].id;
     return stops[0].id;
   };
-  for (const t of trains) {
+  const ensurePlate = (t) => {
+    if (t.plate) return;
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: null, transparent: true, depthTest: false, sizeAttenuation: false }));
     sprite.scale.set(0.17, 0.05, 1);
     sprite.center.set(0.5, -0.4);
@@ -336,8 +363,10 @@ export function createTrains(rails, terrain, stationsById = null) {
     sprite.visible = false;
     group.add(sprite);
     t.plate = sprite; t.plateStop = undefined;
-  }
+  };
+  for (const t of trains) if (t.active) ensurePlate(t);
   const refreshPlate = (t) => {
+    ensurePlate(t);
     const id = nextStopId(t);
     if (id === t.plateStop) return;
     t.plateStop = id;
@@ -348,52 +377,102 @@ export function createTrains(rails, terrain, stationsById = null) {
     t.plate.material.needsUpdate = true;
   };
 
+  /* --------------------------------------------- timetable running */
+  const activate = (t) => {
+    if (t.active) return true;
+    if (!t.freeSlots.length) return false;
+    t.slot = t.freeSlots.pop();
+    t.cars = SLOT_CARS.map((name) => ({ type: name, idx: types[name].free.pop(), len: types[name].len }));
+    t.active = true;
+    return true;
+  };
+  const deactivate = (t) => {
+    if (!t.active) return;
+    for (const car of t.cars) { const ty = types[car.type]; ty.solid.setMatrixAt(car.idx, ZERO); if (ty.glow) ty.glow.setMatrixAt(car.idx, ZERO); ty.free.push(car.idx); }
+    beams.setMatrixAt(t.slot, ZERO);
+    t.freeSlots.push(t.slot); t.slot = -1; t.cars = null; t.active = false; t.v = 0;
+    if (t.plate) t.plate.visible = false;
+  };
+  let replay = false, activeNow = 0, dayKey = null;
+  const runScheduled = (dt, clock) => {
+    // the day's trips are chosen once per Israeli calendar day
+    if (clock.ymd !== dayKey) { dayKey = clock.ymd; sched.selectDay(clock.ymd, clock.weekday); }
+    // quiet hours (Shabbat, the small hours): replay a weekday morning so the screen is never empty
+    let T = clock.T;
+    const live = sched.countActive(T);
+    replay = live < 3 && sched.hasReplay;
+    if (replay) T = sched.replayTime(T);
+    activeNow = 0;
+    for (const t of trains) {
+      const run = t.sched;
+      if (!(replay ? run.wk : run.today)) { deactivate(t); continue; }
+      const prog = tripProgress(run.stops, T - (replay ? 0 : run.offset));
+      if (!prog) { deactivate(t); continue; }
+      if (!activate(t)) continue;
+      activeNow++;
+      const d0 = run.stopD[prog.i], d1 = run.stopD[Math.min(prog.i + 1, run.stopD.length - 1)];
+      const target = Math.max(t.total * 0.55, Math.min(t.route.length - t.total * 0.55, d0 + (d1 - d0) * prog.f));
+      t.v = dt > 0 ? Math.abs(target - t.d) / dt : 0;
+      if (t.v > 3) t.v = 0;                          // a jump (time scrubbed, just appeared) is not a speed
+      t.d = target;
+      t.dwell = prog.stopped ? 1 : 0;
+      place(t);
+    }
+  };
+
   const _c = new THREE.Color();
   const _f = new THREE.Vector3();
   return {
-    group, trains, types, SCALE, smoke, beams,
+    group, trains, types, SCALE, smoke, beams, scheduled,
+    get replay() { return replay; },
+    get activeCount() { return scheduled ? activeNow : trains.length; },
+    get source() { return scheduled ? sched.source : 'toy'; },
     /**
      * @param speedLever 0..1  @param night 0..1  @param lightsOn force lights
      * @param focus      world point the viewer looks at (plates show near it)
      * @param followedId id of the train the tour is riding, whose plate always shows
      * @param viewDist   camera distance to the focus (km): plates hide when you are far out
+     * @param clock      { T: seconds after Israel midnight, ymd, weekday } for the timetable
      */
-    update(dt, speedLever, night, lightsOn, focus = null, followedId = null, viewDist = 0) {
-      const factor = 0.15 + speedLever * 2.2;
-      for (const t of trains) {
-        const vmax = SPEEDS[t.kind] * factor;
-        // slide over to the other track after turning round, and only then set off
-        const ds = Math.max(-0.7 * dt, Math.min(0.7 * dt, t.dir - t.side));
-        t.side += ds;
-        if (t.dwell > 0 || Math.abs(t.dir - t.side) > 0.02) { t.dwell = Math.max(0, t.dwell - dt); t.v = 0; }
-        else {
-          const target = nextStop(t);
-          const remaining = Math.abs(target - t.d);
-          let allowed = Math.min(vmax, Math.sqrt(2 * ACCEL * Math.max(0, remaining - 0.02)));
-          // other trains may hold us; but a train held for long is in a knot of trains all
-          // waiting for each other, so it gets a few seconds of right of way to untie it
-          if (t.graceT > 0) t.graceT -= dt;
+    update(dt, speedLever, night, lightsOn, focus = null, followedId = null, viewDist = 0, clock = null) {
+      if (scheduled) runScheduled(dt, clock || { T: 12 * 3600, ymd: '20260101', weekday: 4 });
+      else {
+        const factor = 0.15 + speedLever * 2.2;
+        for (const t of trains) {
+          const vmax = SPEEDS[t.kind] * factor;
+          // slide over to the other track after turning round, and only then set off
+          const ds = Math.max(-0.7 * dt, Math.min(0.7 * dt, t.dir - t.side));
+          t.side += ds;
+          if (t.dwell > 0 || Math.abs(t.dir - t.side) > 0.02) { t.dwell = Math.max(0, t.dwell - dt); t.v = 0; }
           else {
-            const held = headwayLimit(t);
-            if (held < allowed) {
-              allowed = held;
-              if (held < 0.03) { t.blockedT += dt; if (t.blockedT > 9) { t.blockedT = 0; t.graceT = 12; } }
-              else t.blockedT = Math.max(0, t.blockedT - dt);
-            } else t.blockedT = Math.max(0, t.blockedT - dt);
+            const target = nextStop(t);
+            const remaining = Math.abs(target - t.d);
+            let allowed = Math.min(vmax, Math.sqrt(2 * ACCEL * Math.max(0, remaining - 0.02)));
+            // other trains may hold us; but a train held for long is in a knot of trains all
+            // waiting for each other, so it gets a few seconds of right of way to untie it
+            if (t.graceT > 0) t.graceT -= dt;
+            else {
+              const held = headwayLimit(t);
+              if (held < allowed) {
+                allowed = held;
+                if (held < 0.03) { t.blockedT += dt; if (t.blockedT > 9) { t.blockedT = 0; t.graceT = 12; } }
+                else t.blockedT = Math.max(0, t.blockedT - dt);
+              } else t.blockedT = Math.max(0, t.blockedT - dt);
+            }
+            t.v = t.v < allowed ? Math.min(allowed, t.v + ACCEL * dt) : allowed;
+            const step = Math.min(t.v * dt, remaining);
+            t.d += t.dir * step;
+            if (remaining - step < 0.03) {
+              // arrived: dwell, and turn round at the ends of the line
+              const atEnd = t.d <= t.total * 0.55 + 0.05 || t.d >= t.route.length - t.total * 0.55 - 0.05;
+              t.dwell = atEnd ? 4 : 1.5;
+              if (atEnd) t.dir = t.d <= t.route.length / 2 ? 1 : -1;
+            }
           }
-          t.v = t.v < allowed ? Math.min(allowed, t.v + ACCEL * dt) : allowed;
-          const step = Math.min(t.v * dt, remaining);
-          t.d += t.dir * step;
-          if (remaining - step < 0.03) {
-            // arrived: dwell, and turn round at the ends of the line
-            const atEnd = t.d <= t.total * 0.55 + 0.05 || t.d >= t.route.length - t.total * 0.55 - 0.05;
-            t.dwell = atEnd ? 4 : 1.5;
-            if (atEnd) t.dir = t.d <= t.route.length / 2 ? 1 : -1;
-          }
+          // keep the whole train on the line when it turns round at a terminus
+          t.d = Math.max(t.total * 0.55, Math.min(t.route.length - t.total * 0.55, t.d));
+          place(t);
         }
-        // keep the whole train on the line when it turns round at a terminus
-        t.d = Math.max(t.total * 0.55, Math.min(t.route.length - t.total * 0.55, t.d));
-        place(t);
       }
       for (const ty of Object.values(types)) {
         ty.solid.instanceMatrix.needsUpdate = true;
@@ -406,7 +485,7 @@ export function createTrains(rails, terrain, stationsById = null) {
       // smoke
       for (const t of trains) {
         const spec = SMOKE[t.kind];
-        if (!spec) continue;
+        if (!spec || !t.active) continue;
         const acc = (smokeAcc.get(t) || 0) + dt * spec.rate * (0.25 + t.v * 1.6);
         let n = Math.floor(acc); smokeAcc.set(t, acc - n);
         while (n-- > 0) emit(t, spec);
@@ -427,25 +506,25 @@ export function createTrains(rails, terrain, stationsById = null) {
       const nearView = Math.max(0, Math.min(1, (160 - viewDist) / 60));
       const beamsOn = lightsOn || night > 0.5;
       const beamScale = beamsOn ? 1 : 0;
-      for (let i = 0; i < trains.length; i++) {
-        const t = trains[i];
+      for (const t of trains) {
+        if (!t.active) continue;
         const rot = Math.atan2(t.head.tx, t.head.tz);
-        setInstance(beams, i, t.head.x, t.head.y + 0.22 * SCALE, t.head.z, rot, beamScale, beamScale, beamScale);
-        const plate = t.plate;
+        setInstance(beams, t.slot, t.head.x, t.head.y + 0.22 * SCALE, t.head.z, rot, beamScale, beamScale, beamScale);
         let o = 0;
         if (t.id === followedId) o = nearView;
         else if (focus) { const d = _f.set(t.head.x, t.head.y, t.head.z).distanceTo(focus); o = Math.max(0, Math.min(1, (14 - d) / 6)) * nearView; }
         if (o > 0.02) {
           refreshPlate(t);
-          plate.position.set(t.head.x, t.head.y + 0.9 * SCALE, t.head.z);
-          plate.material.opacity = o; plate.visible = true;
-        } else plate.visible = false;
+          t.plate.position.set(t.head.x, t.head.y + 0.9 * SCALE, t.head.z);
+          t.plate.material.opacity = o; t.plate.visible = true;
+        } else if (t.plate) t.plate.visible = false;
       }
       beams.instanceMatrix.needsUpdate = true;
     },
     nearestTo(point) {
       let best = null, bd = Infinity;
       for (const t of trains) {
+        if (!t.active) continue;
         const d = Math.hypot(t.head.x - point.x, t.head.z - point.z);
         if (d < bd) { bd = d; best = t; }
       }
@@ -453,4 +532,76 @@ export function createTrains(rails, terrain, stationsById = null) {
     },
     byId(id) { return trains.find((t) => t.id === id) || null; },
   };
+}
+
+/* ------------------------------------------ the timetable, on the network */
+/**
+ * Turns the timetable into runs the fleet can drive: each trip's stops are
+ * matched to the nearest network station, a route is computed through them,
+ * and the distance of every stop along it is noted. Trips sharing a calling
+ * pattern share a route.
+ */
+function prepareSchedule({ timetable, router, P, makeRoute }, rails, stationsById) {
+  const stations = Object.values(stationsById || {});
+  const stopToStation = {};
+  for (const [id, st] of Object.entries(timetable.stops)) {
+    const [x, z] = P.toXZ(st.lon, st.lat);
+    let best = null, bd = 2.5;
+    for (const s of stations) { const d = Math.hypot(s.x - x, s.z - z); if (d < bd) { bd = d; best = s.id; } }
+    stopToStation[id] = best;
+  }
+  const routeCache = new Map();
+  const runs = [];
+  let unmatched = 0;
+  for (const trip of timetable.trips) {
+    const ids = [], keep = [];
+    for (let i = 0; i < trip.stops.length; i++) {
+      const sid = stopToStation[trip.stops[i][0]];
+      if (!sid || sid === ids[ids.length - 1]) continue;
+      ids.push(sid); keep.push(trip.stops[i]);
+    }
+    if (ids.length < 2) { unmatched++; continue; }
+    const key = ids.join('>');
+    let route = routeCache.get(key);
+    if (route === undefined) {
+      const r = router.routeThrough(ids);
+      route = r ? makeRoute({ ...r, id: key, kind: 'passenger', he: trip.route || trip.head, en: trip.head }) : null;
+      routeCache.set(key, route);
+    }
+    if (!route) { unmatched++; continue; }
+    const stopD = route.stops.map((s) => s.d);
+    const total = 4 * 2.3 * SCALE * ZS;              // four toy cars, near enough for placement
+    runs.push({ id: trip.id, trip, route, stops: keep, stopD, total, service: trip.service, offset: 0, today: false, wk: false });
+  }
+  // the busiest minute of a weekday decides the pool size
+  const weekdayRuns = runs.filter((r) => { const s = timetable.services[r.service]; return s && (s.days[0] || s.days[1] || s.days[2] || s.days[3]); });
+  let peak = 0;
+  for (let T = 0; T < 30 * 3600; T += 300) {
+    let n = 0;
+    for (const r of weekdayRuns) if (tripProgress(r.stops, T)) n++;
+    peak = Math.max(peak, n);
+  }
+  const slots = Math.min(220, peak + 12);
+  // a weekday to replay when nothing runs (Shabbat, the small hours)
+  const replayDay = (() => {
+    for (const r of weekdayRuns) {
+      const svc = timetable.services[r.service];
+      for (const [i, day] of [4, 3, 2, 1, 0].entries()) if (svc.days[day]) return { weekday: day, ymd: svc.from };
+    }
+    return null;
+  })();
+  if (replayDay) for (const r of runs) { const svc = timetable.services[r.service]; r.wk = !!(svc && svc.days[replayDay.weekday]); }
+  const sched = {
+    runs, slots, source: timetable.source, hasReplay: !!replayDay, unmatched, peak,
+    selectDay(ymd, weekday) {
+      const list = tripsForDay({ trips: runs.map((r) => r.trip), services: timetable.services }, ymd, weekday);
+      const byTrip = new Map();
+      for (const { trip, offset } of list) if (!byTrip.has(trip.id) || offset === 0) byTrip.set(trip.id, offset);
+      for (const r of runs) { const off = byTrip.get(r.trip.id); r.today = off !== undefined; r.offset = off || 0; }
+    },
+    countActive(T) { let n = 0; for (const r of runs) if (r.today && tripProgress(r.stops, T - r.offset)) n++; return n; },
+    /** the same minute of a weekday morning rush */
+    replayTime(T) { return 8 * 3600 + (T % 3600); },
+  };
+  return sched;
 }

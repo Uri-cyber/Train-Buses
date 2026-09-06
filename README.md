@@ -71,6 +71,29 @@ network status line back. The desk at the bottom of the screen:
 
 Keys: `↑`/`↓` speed, `←`/`→` time, `1` to `6` the buttons, `Q` render quality, `R` home view.
 
+## The real timetable
+
+The trains are the real ones. Every night GitHub downloads the Ministry of
+Transport's GTFS feed (every bus and train in Israel), keeps the Israel
+Railways trips, and ships them with the page as `timetable.json`. On the
+page each trip's calling points are matched to stations on the network, a
+route is computed through them, and the train is placed by the clock: at
+08:14 you see the trains that are between stations at 08:14, at their real
+speed. Trips sharing a calling pattern share a route, so a thousand trips a
+day cost little.
+
+- Real time means real speed: a train covers its own length in a minute.
+  `?speed=6` runs the timetable six times faster than the clock (positions
+  then no longer match the wall clock, the sequence still does).
+- Shabbat and the small hours are quiet, so when fewer than three trains are
+  running the page replays a weekday morning and the status line says so.
+- No feed, no trains? `?trains=toy` brings back the made-up service. The
+  checks run on a synthetic timetable (`npm run fixture`).
+- `npm run timetable` fetches and converts the feed on your own PC
+  (`data/timetable.json`, about 400 KB from a 300 MB zip).
+
+Data: Israel Ministry of Transport GTFS, Israel Railways trips.
+
 ## The live network
 
 When the page opens it shows the bundled map at once, then asks the
