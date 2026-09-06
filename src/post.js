@@ -200,6 +200,12 @@ export function createPost(renderer, scene, camera) {
       const s = 0.6 + 1.6 * Math.min(1, dist / 350);
       tiltH.uniforms.strength.value = tiltV.uniforms.strength.value = s;
     },
+    /** where the sharp band sits on screen (0 = bottom, 1 = top) and how tall it is; nothing on 'low' */
+    setFocus(y01, band) {
+      if (api.quality === 'low') return;
+      tiltH.uniforms.focus.value = tiltV.uniforms.focus.value = y01;
+      tiltH.uniforms.band.value = tiltV.uniforms.band.value = band;
+    },
     resize(w, h) {
       composer.setSize(w, h);
       edge.setSize(w * dpr, h * dpr);

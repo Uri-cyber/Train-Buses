@@ -514,12 +514,16 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
         const rot = Math.atan2(t.head.tx, t.head.tz);
         setInstance(beams, t.slot, t.head.x, t.head.y + 0.22 * SCALE, t.head.z, rot, beamScale, beamScale, beamScale);
         let o = 0;
-        if (t.id === followedId) o = nearView;
-        else if (focus) { const d = _f.set(t.head.x, t.head.y, t.head.z).distanceTo(focus); o = Math.max(0, Math.min(1, (14 - d) / 6)) * nearView; }
-        if (o > 0.02) {
+        if (t.id === followedId) o = 1;                       // the ridden train is always legible
+        else if (focus && !followedId) {                      // one plate at a time while the tour rides
+          const d = _f.set(t.head.x, t.head.y, t.head.z).distanceTo(focus);
+          o = Math.max(0, Math.min(1, (14 - d) / 6)) * nearView;
+        }
+        t.plateO = (t.plateO || 0) + (o - (t.plateO || 0)) * Math.min(1, dt * 5);   // plates fade, never pop
+        if (t.plateO > 0.02) {
           refreshPlate(t);
           t.plate.position.set(t.head.x, t.head.y + 0.9 * SCALE, t.head.z);
-          t.plate.material.opacity = o; t.plate.visible = true;
+          t.plate.material.opacity = t.plateO; t.plate.visible = true;
         } else if (t.plate) t.plate.visible = false;
       }
       beams.instanceMatrix.needsUpdate = true;

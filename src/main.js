@@ -121,7 +121,9 @@ const state = {
   lights: false, turntable: true, traffic: true, whistle: false,
   tour: params.get('tour') !== 'off',             // the camera rides the trains on its own
 };
-const tour = createTour({ cam, getTrains: () => built.trains.trains, terrain, state, hint: document.getElementById('tour') });
+const tour = createTour({ cam, getTrains: () => built.trains.trains, getLandmarks: () => built.landmarks.list, terrain, state, hint: document.getElementById('tour') });
+const _proj = new THREE.Vector3();
+let focusY = 0.52;               // where the tilt-shift's sharp band sits (0 bottom, 1 top)
 
 const music = createMusic();
 const hud = createHud(renderer, state, {
@@ -223,6 +225,14 @@ function frame() {
   tour.update(dt);                 // after the trains moved, before the camera settles
   cam.update(dt);
   const dist = cam.distance();
+  // the sharp band of the tilt-shift follows the ridden train
+  const ft = tour.trainId ? built.trains.byId(tour.trainId) : null;
+  if (ft) {
+    const h = ft.head;
+    _proj.set(h.x, h.y, h.z).project(cam.camera);
+    focusY += (Math.max(0.2, Math.min(0.85, (_proj.y + 1) / 2)) - focusY) * Math.min(1, dt * 4);
+    post.setFocus(focusY, cam.flying() ? 0.35 : 0.14);
+  } else { focusY = 0.52; post.setFocus(0.52, 0.16); }
   lights.update(skyState, cam.controls.target, dist);
   sea.update(clock.elapsedTime);
   built.stations.update(cam.camera, dt);

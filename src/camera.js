@@ -12,7 +12,7 @@ export function createCamera(renderer, terrain) {
   controls.dampingFactor = 0.08;
   controls.minDistance = 2.5;
   controls.maxDistance = 720;
-  controls.maxPolarAngle = 1.32;
+  controls.maxPolarAngle = 1.48;
   controls.minPolarAngle = 0.04;
   controls.zoomSpeed = 0.9;
   controls.panSpeed = 0.8;
@@ -20,6 +20,7 @@ export function createCamera(renderer, terrain) {
   controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
 
   let fly = null;      // { from, to, targetFrom, targetTo, t, dur, getter? }
+  let fovTarget = 46;  // the lens eases toward this (the tour's shots pick it)
   const api = {
     camera, controls, free: false,
     distance: () => camera.position.distanceTo(controls.target),
@@ -44,6 +45,8 @@ export function createCamera(renderer, terrain) {
       camera.position.lerp(pos, a);
       controls.target.lerp(target, a);
     },
+    /** ease the lens to a new field of view (degrees) */
+    setFov(f) { fovTarget = f; },
     reset() { api.flyTo(HOME.target, HOME.offset, 2.4); },
     cancelFlight() { fly = null; },
     flying: () => !!fly,
@@ -69,6 +72,10 @@ export function createCamera(renderer, terrain) {
         // loft over the country between two low viewpoints
         if (fly.getter) camera.position.y += Math.sin(e * Math.PI) * Math.min(60, fly.from.distanceTo(fly.to) * 0.35);
         if (fly.t >= 1) fly = null;
+      }
+      if (Math.abs(camera.fov - fovTarget) > 0.01) {
+        camera.fov += (fovTarget - camera.fov) * Math.min(1, dt * 3);
+        camera.updateProjectionMatrix();
       }
       // never under the hills
       const eye = terrain.heightAt(camera.position.x, camera.position.z) + 1.0;
