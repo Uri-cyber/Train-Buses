@@ -9,31 +9,35 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Does the API allow browsers on other sites (CORS)?
+      - name: Station ids and names
+        run: |
+          curl -sS -m 25 -H 'ocp-apim-subscription-key: 5e64d66cf03f4547bcac5de2de06b566' \
+            "https://rail-api.rail.co.il/common/api/v1/stations?languageId=Hebrew&systemType=2" -o st.json
+          python3 -c "
+          import json; d=json.load(open('st.json'))
+          for s in sorted(d['result'], key=lambda s: s['stationId']): print(s['stationId'], s['stationName'], round(s['location']['latitude'],3), round(s['location']['lontitude'],3))
+          "
+      - name: Live positions right now (no Origin header)
         run: |
           DAY=$(TZ=Asia/Jerusalem date +%Y-%m-%d); HOUR=$(TZ=Asia/Jerusalem date +%H:%M)
-          KEY=5e64d66cf03f4547bcac5de2de06b566
-          echo "== preflight from uri-cyber.github.io"
-          curl -sS -m 25 -i -X OPTIONS -H 'origin: https://uri-cyber.github.io' -H 'access-control-request-method: POST' \
-            -H 'access-control-request-headers: content-type,ocp-apim-subscription-key' \
-            https://rail-api.rail.co.il/rjpa/api/v1/timetable/searchTrain | head -30
-          echo; echo "== POST with that origin"
-          curl -sS -m 25 -D - -o body.txt -X POST -H 'origin: https://uri-cyber.github.io' -H "ocp-apim-subscription-key: $KEY" -H 'content-type: application/json' \
-            -d "{\"fromStation\":\"3700\",\"toStation\":\"2300\",\"date\":\"$DAY\",\"hour\":\"$HOUR\",\"scheduleType\":\"ByDeparture\",\"systemType\":\"2\",\"languageId\":\"Hebrew\"}" \
-            https://rail-api.rail.co.il/rjpa/api/v1/timetable/searchTrain | head -30
-          echo; echo "== trains with a live position right now"
-          python3 - <<'PY'
+          for PAIR in "1600 7300" "680 3500" "1820 400"; do
+            set -- $PAIR
+            curl -sS -m 25 -o body.txt -X POST -H 'ocp-apim-subscription-key: 5e64d66cf03f4547bcac5de2de06b566' -H 'content-type: application/json' \
+              -d "{\"fromStation\":\"$1\",\"toStation\":\"$2\",\"date\":\"$DAY\",\"hour\":\"$HOUR\",\"scheduleType\":\"ByDeparture\",\"systemType\":\"2\",\"languageId\":\"Hebrew\"}" \
+              https://rail-api.rail.co.il/rjpa/api/v1/timetable/searchTrain
+            echo "== $1 -> $2 ($(wc -c < body.txt) bytes)"
+            python3 - <<'PY'
           import json
-          d=json.load(open('body.txt'))
-          n=0
+          try: d=json.load(open('body.txt'))
+          except Exception: print(open('body.txt').read()[:300]); raise SystemExit
+          if not d.get('result'): print(json.dumps(d)[:300]); raise SystemExit
+          n=0; tot=0
           for tv in d['result']['travels']:
             for t in tv['trains']:
-              p=t.get('trainPosition')
+              tot+=1; p=t.get('trainPosition')
               if p:
                 n+=1
-                if n<=6: print(t['trainNumber'], t['departureTime'], json.dumps(p, ensure_ascii=False))
-          print('with position:', n, 'of', sum(len(tv['trains']) for tv in d['result']['travels']))
+                if n<=5: print(t['trainNumber'], t['departureTime'][11:16], '->', t['arrivalTime'][11:16], json.dumps(p, ensure_ascii=False))
+          print('with position:', n, 'of', tot, 'trains;', len(d['result']['travels']), 'journeys')
           PY
-          echo; echo "== station list GET with browser origin"
-          curl -sS -m 25 -D - -o /dev/null -H 'origin: https://uri-cyber.github.io' -H "ocp-apim-subscription-key: $KEY" \
-            "https://rail-api.rail.co.il/common/api/v1/stations?languageId=Hebrew&systemType=2" | head -20
+          done
