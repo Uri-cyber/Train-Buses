@@ -1,8 +1,7 @@
 name: Probe the Israel Railways API
 
 # Exploration only: GitHub's runners can reach the internet, the build
-# machine that writes this project cannot. Run by hand from the Actions tab;
-# the log shows what each candidate Israel Railways endpoint answers.
+# machine that writes this project cannot. Run by hand from the Actions tab.
 on:
   workflow_dispatch:
 
@@ -10,32 +9,40 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Try every candidate endpoint
+      - name: Find the current endpoints in open source apps
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "== GitHub code search"
+          for Q in searchTrainLuzForDateTime 5e64d66cf03f4547bcac5de2de06b566 "rail-api.rail.co.il"; do
+            echo "-- $Q"
+            curl -sS -m 30 -H "Authorization: Bearer $GH_TOKEN" -H 'accept: application/vnd.github+json' \
+              "https://api.github.com/search/code?q=$(printf %s "$Q" | sed 's/ /%20/g')&per_page=15" | tee search.json | head -c 300; echo
+            python3 -c "import json,sys; d=json.load(open('search.json')); print('total', d.get('total_count'), d.get('message','')); [print(i['repository']['full_name'], i['path']) for i in d.get('items',[])]"
+          done
+          echo "== better-rail tree"
+          curl -sS -m 30 "https://api.github.com/repos/guytepper/better-rail/git/trees/main?recursive=1" | python3 -c "
+          import json,sys,re; d=json.load(sys.stdin); print(d.get('message',''))
+          for t in d.get('tree',[]):
+            if re.search(r'(api|rail|route|station|realtime|delay)[^/]*\.(ts|js|tsx)$', t['path'], re.I) and 'node_modules' not in t['path'] and 'test' not in t['path']: print(t['path'])
+          " | tee tree.txt | head -60
+          echo "== URLs and keys inside those files"
+          head -40 tree.txt | while read -r p; do
+            [ -z "$p" ] && continue
+            curl -sS -m 30 "https://raw.githubusercontent.com/guytepper/better-rail/main/$p" -o f.txt || continue
+            hits=$(grep -oiE 'https?://[^"'"'"'` )]*(rail|azure)[^"'"'"'` )]*|ocp-apim-subscription-key[^,;)]{0,80}|[a-zA-Z/]*(searchTrain|Luz|Delay|Position|realtime|Board|Announcement)[a-zA-Z/]*' f.txt | sort -u)
+            [ -n "$hits" ] && { echo "-- $p"; echo "$hits" | head -25; }
+          done
+          true
+      - name: Ask the API itself
         run: |
           DAY=$(TZ=Asia/Jerusalem date +%Y-%m-%d); HOUR=$(TZ=Asia/Jerusalem date +%H:%M)
-          KEY=4b0d355121fe4e0bb3d86e902efe9f20
-          Q="fromStation=3700&toStation=2300&date=$DAY&hour=$HOUR&scheduleType=1&systemType=2&languageId=Hebrew"
-          try() {   # label url [extra curl args...]
-            local label="$1" url="$2"; shift 2
-            local code
-            : > body.txt
-            code=$(curl -sS -m 25 -L -o body.txt -w '%{http_code}' -A 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0' \
-              -H "ocp-apim-subscription-key: $KEY" -H 'accept: application/json, text/plain, */*' \
-              -H 'origin: https://www.rail.co.il' -H 'referer: https://www.rail.co.il/' "$@" "$url" 2>&1) || code="ERR $code"
-            echo "== $label"; echo "   $url"; echo "   HTTP $code, $(wc -c < body.txt 2>/dev/null || echo 0) bytes, type: $(file -b body.txt | cut -c1-40)"
-            echo "   $(tr -d '\r\n' < body.txt | cut -c1-250)"
-          }
           KEY=5e64d66cf03f4547bcac5de2de06b566
-          QS="fromStation=3700&toStation=2300&date=$DAY&hour=$HOUR&scheduleType=1&systemType=1&languageId=Hebrew"
-          for PFX in rjpa rjpa-prod rjpa/prod timetable luz api; do
-            for V in v1 v2 v3; do
-              for OP in timetable/searchTrainLuzForDateTime searchTrainLuzForDateTime timetable/searchTrainLuz timetable/SearchTrainLuzForDateTime Timetable/searchTrainLuzForDateTime; do
-                try "GET $PFX/api/$V/$OP" "https://rail-api.rail.co.il/$PFX/api/$V/$OP?$QS"
-              done
-            done
-          done
-          try "POST rjpa/api/v1/timetable/searchTrainLuzForDateTime" "https://rail-api.rail.co.il/rjpa/api/v1/timetable/searchTrainLuzForDateTime" -X POST -H 'content-type: application/json' -d "{\"fromStation\":3700,\"toStation\":2300,\"date\":\"$DAY\",\"hour\":\"$HOUR\",\"scheduleType\":1,\"systemType\":1,\"languageId\":\"Hebrew\"}"
-          for OP in common/api/v1/stations common/api/v1/StationsInfo common/api/v1/TrainsPositions common/api/v1/TrainPosition common/api/v1/delays common/api/v1/Delays common/api/v1/UpdatesForToday common/api/v1/Updates common/api/v1/updates common/api/v1/RealTime rjpa/api/v1/timetable/TrainsPosition rjpa/api/v1/realtime/trains; do
-            try "GET $OP" "https://rail-api.rail.co.il/$OP?languageId=Hebrew&systemType=1"
-          done
-          echo; echo "== runner egress"; curl -sS -m 10 https://ifconfig.me; echo
+          try() {
+            local label="$1" url="$2"; shift 2; : > body.txt
+            local code; code=$(curl -sS -m 25 -L -o body.txt -w '%{http_code}' -A 'Mozilla/5.0' -H "ocp-apim-subscription-key: $KEY" -H 'accept: application/json' "$@" "$url" 2>&1) || code="ERR $code"
+            echo "== $label"; echo "   $url"; echo "   HTTP $code, $(wc -c < body.txt) bytes"; echo "   $(tr -d '\r\n' < body.txt | cut -c1-600)"
+          }
+          try "stations (known good)" "https://rail-api.rail.co.il/common/api/v1/stations?languageId=Hebrew&systemType=1"
+          for P in rjpa rjpa/api rjpa/api/v1 rjpa/api/v1/timetable; do try "probe $P" "https://rail-api.rail.co.il/$P"; done
+          try "azurefd via Host header" "https://israelrail.azurefd.net/rjpa-prod/api/v1/timetable/searchTrainLuzForDateTime?fromStation=3700&toStation=2300&date=$DAY&hour=$HOUR&scheduleType=1&systemType=1&languageId=Hebrew" -H 'Host: rail-api.rail.co.il'
