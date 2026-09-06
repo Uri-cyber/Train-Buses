@@ -1,0 +1,43 @@
+name: Probe the Israel Railways API
+
+# Exploration only: GitHub's runners can reach Israel Railways, the build
+# machine that writes this project cannot. Run by hand from the Actions tab;
+# the log shows what the public web app's API answers.
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Route search with the web app's public subscription key
+        continue-on-error: true
+        run: |
+          DAY=$(TZ=Asia/Jerusalem date +%Y-%m-%d); HOUR=$(TZ=Asia/Jerusalem date +%H:%M)
+          echo "== searchTrainLuzForDateTime Tel Aviv Savidor (3700) -> Haifa Hof HaCarmel (2300) $DAY $HOUR"
+          curl -sS -m 30 -w '\nHTTP %{http_code}\n' \
+            -H 'ocp-apim-subscription-key: 4b0d355121fe4e0bb3d86e902efe9f20' \
+            -H 'accept: application/json' -H 'origin: https://www.rail.co.il' -H 'referer: https://www.rail.co.il/' \
+            "https://israelrail.azurefd.net/rjpa-prod/api/v1/timetable/searchTrainLuzForDateTime?fromStation=3700&toStation=2300&date=$DAY&hour=$HOUR&scheduleType=1&systemType=2&languageId=Hebrew" | head -c 6000
+          echo
+      - name: Station list
+        continue-on-error: true
+        run: |
+          curl -sS -m 30 -w '\nHTTP %{http_code}\n' \
+            -H 'ocp-apim-subscription-key: 4b0d355121fe4e0bb3d86e902efe9f20' -H 'accept: application/json' \
+            "https://israelrail.azurefd.net/common/api/v1/stations?languageId=Hebrew&systemType=2" | head -c 3000
+          echo
+      - name: What the web app itself calls (endpoints and keys in its scripts)
+        continue-on-error: true
+        run: |
+          curl -sS -m 30 -L -A 'Mozilla/5.0' -o home.html -w 'home HTTP %{http_code}\n' https://www.rail.co.il/
+          grep -oE 'src="[^"]+\.js[^"]*"' home.html | sed 's/src="//; s/"$//' | head -20 > scripts.txt
+          cat scripts.txt
+          while read -r s; do
+            case "$s" in http*) url="$s";; /*) url="https://www.rail.co.il$s";; *) url="https://www.rail.co.il/$s";; esac
+            curl -sS -m 30 -L -A 'Mozilla/5.0' "$url" -o bundle.js || continue
+            echo "== $url ($(wc -c < bundle.js) bytes)"
+            grep -oE 'https?://[a-zA-Z0-9./_-]*(azurefd|rail\.co\.il)[a-zA-Z0-9./_-]*' bundle.js | sort -u | head -40
+            grep -oiE '(subscription-key|apim)[^,;]{0,120}' bundle.js | sort -u | head -10
+            grep -oE '[a-zA-Z]*(Luz|Delay|Position|RealTime|realtime|Board|NextTrains)[a-zA-Z]*' bundle.js | sort -u | head -40
+          done < scripts.txt
