@@ -9,53 +9,31 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: searchTrain (POST) and what it says about delays
+      - name: Does the API allow browsers on other sites (CORS)?
         run: |
           DAY=$(TZ=Asia/Jerusalem date +%Y-%m-%d); HOUR=$(TZ=Asia/Jerusalem date +%H:%M)
           KEY=5e64d66cf03f4547bcac5de2de06b566
-          post() {   # label from to
-            local body="{\"fromStation\":\"$2\",\"toStation\":\"$3\",\"date\":\"$DAY\",\"hour\":\"$HOUR\",\"scheduleType\":\"ByDeparture\",\"systemType\":\"2\",\"languageId\":\"Hebrew\"}"
-            : > body.txt
-            local code; code=$(curl -sS -m 25 -o body.txt -w '%{http_code}' -X POST -A 'Mozilla/5.0' -H "ocp-apim-subscription-key: $KEY" -H 'content-type: application/json' -H 'accept: application/json' -d "$body" https://rail-api.rail.co.il/rjpa/api/v1/timetable/searchTrain 2>&1) || code="ERR $code"
-            echo "== $1 ($2 -> $3) HTTP $code, $(wc -c < body.txt) bytes"
-            python3 - <<'PY'
+          echo "== preflight from uri-cyber.github.io"
+          curl -sS -m 25 -i -X OPTIONS -H 'origin: https://uri-cyber.github.io' -H 'access-control-request-method: POST' \
+            -H 'access-control-request-headers: content-type,ocp-apim-subscription-key' \
+            https://rail-api.rail.co.il/rjpa/api/v1/timetable/searchTrain | head -30
+          echo; echo "== POST with that origin"
+          curl -sS -m 25 -D - -o body.txt -X POST -H 'origin: https://uri-cyber.github.io' -H "ocp-apim-subscription-key: $KEY" -H 'content-type: application/json' \
+            -d "{\"fromStation\":\"3700\",\"toStation\":\"2300\",\"date\":\"$DAY\",\"hour\":\"$HOUR\",\"scheduleType\":\"ByDeparture\",\"systemType\":\"2\",\"languageId\":\"Hebrew\"}" \
+            https://rail-api.rail.co.il/rjpa/api/v1/timetable/searchTrain | head -30
+          echo; echo "== trains with a live position right now"
+          python3 - <<'PY'
           import json
-          try: d=json.load(open('body.txt'))
-          except Exception as e: print(open('body.txt').read()[:800]); raise SystemExit
-          r=d.get('result') or {}
-          tr=r.get('travels') or []
-          print('top keys', list(d.keys())); print('result keys', list(r.keys())); print('travels', len(tr))
-          if tr:
-            t=tr[0]; print('travel keys', list(t.keys()))
-            tn=t.get('trains') or []
-            if tn:
-              x=tn[0]; print('train keys', list(x.keys()))
-              print(json.dumps({k:v for k,v in x.items() if k not in ('stopStations',)}, ensure_ascii=False)[:1500])
-              ss=x.get('stopStations') or []
-              if ss: print('stopStation keys', list(ss[0].keys())); print(json.dumps(ss[0], ensure_ascii=False)[:400])
-          # every key name anywhere in the document, for delay hunting
-          keys=set()
-          def walk(o):
-            if isinstance(o,dict):
-              for k,v in o.items(): keys.add(k); walk(v)
-            elif isinstance(o,list):
-              for v in o: walk(v)
-          walk(d); print('ALL KEYS:', sorted(keys))
+          d=json.load(open('body.txt'))
+          n=0
+          for tv in d['result']['travels']:
+            for t in tv['trains']:
+              p=t.get('trainPosition')
+              if p:
+                n+=1
+                if n<=6: print(t['trainNumber'], t['departureTime'], json.dumps(p, ensure_ascii=False))
+          print('with position:', n, 'of', sum(len(tv['trains']) for tv in d['result']['travels']))
           PY
-          }
-          post "Tel Aviv Savidor to Haifa Hof HaCarmel" 3700 2300
-          post "Jerusalem Yitzhak Navon to Ben Gurion" 680 8600
-      - name: Other endpoints on the same gateway
-        run: |
-          KEY=5e64d66cf03f4547bcac5de2de06b566
-          DAY=$(TZ=Asia/Jerusalem date +%Y-%m-%d); HOUR=$(TZ=Asia/Jerusalem date +%H:%M)
-          try() { : > body.txt; local code; code=$(curl -sS -m 25 -o body.txt -w '%{http_code}' -A 'Mozilla/5.0' -H "ocp-apim-subscription-key: $KEY" -H 'content-type: application/json' -H 'accept: application/json' "${@:2}" 2>&1) || code="ERR $code"; echo "== $1 HTTP $code, $(wc -c < body.txt) bytes"; echo "   $(tr -d '\r\n' < body.txt | cut -c1-500)"; }
-          try "generalMessages" -X POST -d '{"languageId":"Hebrew","systemType":"2"}' https://rail-api.rail.co.il/rjpa/api/v1/timetable/generalMessages
-          try "searchTrainForMobile GET" "https://rail-api.rail.co.il/rjpa/api/v1/timetable/searchTrainForMobile?fromStation=3700&toStation=2300&date=$DAY&hour=$HOUR&scheduleType=1&systemType=2&languageId=Hebrew"
-          try "searchTrainForMobile POST" -X POST -d "{\"fromStation\":\"3700\",\"toStation\":\"2300\",\"date\":\"$DAY\",\"hour\":\"$HOUR\",\"scheduleType\":\"ByDeparture\",\"systemType\":\"2\",\"languageId\":\"Hebrew\"}" https://rail-api.rail.co.il/rjpa/api/v1/timetable/searchTrainForMobile
-          for OP in getTrainDelays trainDelays delays realTime realtime trainsPositions trainPositions getTrainsPositions luzForDate getLuz; do
-            try "rjpa timetable/$OP POST" -X POST -d '{"languageId":"Hebrew","systemType":"2"}' "https://rail-api.rail.co.il/rjpa/api/v1/timetable/$OP"
-          done
-          for OP in TrainsPositions Delays Updates UpdatesForToday HomePageMessages generalMessages TrainDelays; do
-            try "common $OP GET" "https://rail-api.rail.co.il/common/api/v1/$OP?languageId=Hebrew&systemType=2"
-          done
+          echo; echo "== station list GET with browser origin"
+          curl -sS -m 25 -D - -o /dev/null -H 'origin: https://uri-cyber.github.io' -H "ocp-apim-subscription-key: $KEY" \
+            "https://rail-api.rail.co.il/common/api/v1/stations?languageId=Hebrew&systemType=2" | head -20
