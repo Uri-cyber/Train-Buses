@@ -41,3 +41,16 @@ jobs:
           print('with position:', n, 'of', tot, 'trains;', len(d['result']['travels']), 'journeys')
           PY
           done
+      - uses: actions/checkout@v4
+      - name: Run the proxy (worker/rail-live.js) once, as the page would use it
+        run: |
+          node --input-type=module -e "
+          import worker from './worker/rail-live.js';
+          const t0 = Date.now();
+          const r = await worker.fetch(new Request('https://example.workers.dev/live'));
+          const d = await r.json();
+          const trains = Object.values(d.trains || {});
+          console.log('HTTP', r.status, 'in', Date.now() - t0, 'ms;', Object.keys(d.stations || {}).length, 'stations;', trains.length, 'trains;', trains.filter((t) => t.delay !== null).length, 'with a live position;', trains.filter((t) => t.delay > 0).length, 'late');
+          console.log(JSON.stringify(trains.filter((t) => t.delay !== null).slice(0, 3)));
+          if (r.status !== 200 || trains.length < 100) process.exit(1);
+          "

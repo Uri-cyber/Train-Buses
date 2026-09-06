@@ -406,7 +406,7 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
     for (const t of trains) {
       const run = t.sched;
       if (!(replay ? run.wk : run.today)) { deactivate(t); continue; }
-      const prog = tripProgress(run.stops, T - (replay ? 0 : run.offset));
+      const prog = tripProgress(run.stops, T - (replay ? 0 : run.offset + (run.delay || 0)));
       if (!prog) { deactivate(t); continue; }
       if (!activate(t)) continue;
       activeNow++;
@@ -427,6 +427,9 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
     get replay() { return replay; },
     get activeCount() { return scheduled ? activeNow : trains.length; },
     get source() { return scheduled ? sched.source : 'toy'; },
+    /** live delays from Israel Railways (see live.js): how many of today's runs were matched */
+    get live() { return scheduled ? sched.live : null; },
+    applyLive(digest) { if (scheduled) sched.applyLive(digest); },
     /**
      * @param speedLever 0..1  @param night 0..1  @param lightsOn force lights
      * @param focus      world point the viewer looks at (plates show near it)
@@ -543,13 +546,14 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
  */
 function prepareSchedule({ timetable, router, P, makeRoute }, rails, stationsById) {
   const stations = Object.values(stationsById || {});
-  const stopToStation = {};
-  for (const [id, st] of Object.entries(timetable.stops)) {
-    const [x, z] = P.toXZ(st.lon, st.lat);
+  const nearestStation = (lon, lat) => {
+    const [x, z] = P.toXZ(lon, lat);
     let best = null, bd = 2.5;
     for (const s of stations) { const d = Math.hypot(s.x - x, s.z - z); if (d < bd) { bd = d; best = s.id; } }
-    stopToStation[id] = best;
-  }
+    return best;
+  };
+  const stopToStation = {};
+  for (const [id, st] of Object.entries(timetable.stops)) stopToStation[id] = nearestStation(st.lon, st.lat);
   const routeCache = new Map();
   const runs = [];
   let unmatched = 0;
@@ -598,10 +602,48 @@ function prepareSchedule({ timetable, router, P, makeRoute }, rails, stationsByI
       const byTrip = new Map();
       for (const { trip, offset } of list) if (!byTrip.has(trip.id) || offset === 0) byTrip.set(trip.id, offset);
       for (const r of runs) { const off = byTrip.get(r.trip.id); r.today = off !== undefined; r.offset = off || 0; }
+      if (sched.digest) sched.applyLive(sched.digest);        // a new day: match the live trains again
     },
     countActive(T) { let n = 0; for (const r of runs) if (r.today && tripProgress(r.stops, T - r.offset)) n++; return n; },
     /** the same minute of a weekday morning rush */
     replayTime(T) { return 8 * 3600 + (T % 3600); },
+    live: null, digest: null,
+    /**
+     * Match Israel Railways' live trains to today's GTFS runs. The two feeds
+     * share no ids, so a train is recognised by where and when it calls: the
+     * network station nearest each API stop plus the scheduled arrival minute.
+     * A matched run is shifted by its delay; a run whose train is not out
+     * on the line yet keeps the timetable.
+     */
+    applyLive(digest) {
+      if (!digest || !digest.trains) return;
+      sched.digest = digest;
+      const apiStation = {};
+      for (const [id, ll] of Object.entries(digest.stations || {})) if (ll && ll[0]) apiStation[id] = nearestStation(ll[1], ll[0]);
+      const keyed = new Map();                       // 'station@HH:MM' -> live train
+      for (const [num, tr] of Object.entries(digest.trains)) {
+        for (const [sid, hhmm] of tr.stops || []) {
+          const st = apiStation[sid];
+          if (st && hhmm) keyed.set(`${st}@${hhmm}`, { num, ...tr });
+        }
+      }
+      const hhmm = (secs) => { const m = ((Math.round(secs / 60) % 1440) + 1440) % 1440; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+      let matched = 0, delayed = 0, positioned = 0;
+      for (const r of runs) {
+        r.delay = 0; r.liveNum = null;
+        if (!r.today) continue;
+        let hit = null, votes = 0;
+        for (const [stopId, arr] of r.stops) {
+          const st = stopToStation[stopId];
+          const k = st && keyed.get(`${st}@${hhmm(arr + r.offset)}`);
+          if (k) { if (!hit || k.num === hit.num) { hit = k; votes++; } }
+        }
+        if (!hit || votes < 2) continue;          // two calls agree: it is the same train
+        matched++; r.liveNum = hit.num;
+        if (hit.delay !== null) { positioned++; r.delay = hit.delay * 60; if (hit.delay > 0) delayed++; }
+      }
+      sched.live = { fetched: digest.fetched, trains: Object.keys(digest.trains).length, matched, positioned, delayed };
+    },
   };
   return sched;
 }

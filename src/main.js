@@ -23,6 +23,7 @@ import { createHud } from './hud.js';
 import { createTour } from './tour.js';
 import { createMusic } from './music.js';
 import { loadTimetable, israelDate } from './timetable.js';
+import { createLive } from './live.js';
 import { makeRouter } from './router.js';
 import { makeProjection } from './geo.js';
 
@@ -63,6 +64,11 @@ const TOY = params.get('trains') === 'toy';        // ?trains=toy: the made-up f
 // Real trains at real speed barely move on a map of a whole country, so the timetable
 // runs eight times faster than the clock by default; ?speed=1 is true real time.
 const TIME_SCALE = Math.max(1, Math.min(60, +params.get('speed') || 8));
+// Live delays from Israel Railways come through a small proxy (worker/rail-live.js):
+// ?live=<its url>, or the address below once one is deployed. ?live=off turns it off.
+const LIVE_URL = '';
+const LIVE = params.get('live') === 'off' ? '' : (params.get('live') || LIVE_URL);
+let liveDigest = null;
 let ttClock = null;                               // the sped-up timetable clock, seconds after midnight
 const scheduleFor = (net, rails) => timetable && !TOY ? { timetable, router: makeRouter(net), P: terrain.P, makeRoute: rails.makeRoute } : null;
 function makeTrains(net, rails, stations) { return createTrains(rails, terrain, stations.byId, { schedule: scheduleFor(net, rails) }); }
@@ -97,6 +103,7 @@ function swapTrains() {
   built.trains = makeTrains(network, built.rails, built.stations);
   built.groups[built.groups.indexOf(old.group)] = built.trains.group;
   scene.add(built.trains.group);
+  if (liveDigest) built.trains.applyLive(liveDigest);
 }
 
 /* ---------------------------------------------------------------- state */
@@ -182,6 +189,7 @@ renderer.info.autoReset = false;
 const app = {
   scene, camera: cam.camera, renderer, state, cam, terrain, sky, lights, post, world, traffic, hud, tour, music, fps: 0, timetable: { loaded: false, pending: true },
   liveStatus: { source: 'bundled', applied: false },
+  get live() { return LIVE ? { source: LIVE, ...live.status, ...(built.trains.live || {}) } : null; },
   get network() { return network; },
   get rails() { return built.rails; }, get stations() { return built.stations; }, get trains() { return built.trains; },
   get cities() { return built.cities; }, get vegetation() { return built.vegetation; }, get occupancy() { return built.occupancy; }, get landmarks() { return built.landmarks; },
@@ -245,10 +253,19 @@ const ttStatus = () => {
   if (!tr.scheduled) { ttEl.innerHTML = '<span dir="rtl">רכבות: שירות מדומה (אין לוח זמנים)</span><span dir="ltr">Trains: made-up service (no timetable)</span>'; return; }
   const when = new Date(timetable.fetched).toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' });
   const scale = TIME_SCALE > 1 ? ` · ×${TIME_SCALE}` : '';
-  const he = tr.replay ? `לוח זמנים: רכבת ישראל, עודכן ${when} · שקט עכשיו, משדר בוקר יום חול${scale}` : `לוח זמנים: רכבת ישראל, עודכן ${when} · ${tr.activeCount} רכבות בדרך${scale}`;
-  const en = tr.replay ? `Timetable: Israel Railways (MOT GTFS), updated ${when} · quiet now, replaying a weekday morning${scale}` : `Timetable: Israel Railways (MOT GTFS), updated ${when} · ${tr.activeCount} trains running${scale}`;
+  let he = tr.replay ? `לוח זמנים: רכבת ישראל, עודכן ${when} · שקט עכשיו, משדר בוקר יום חול${scale}` : `לוח זמנים: רכבת ישראל, עודכן ${when} · ${tr.activeCount} רכבות בדרך${scale}`;
+  let en = tr.replay ? `Timetable: Israel Railways (MOT GTFS), updated ${when} · quiet now, replaying a weekday morning${scale}` : `Timetable: Israel Railways (MOT GTFS), updated ${when} · ${tr.activeCount} trains running${scale}`;
+  const lv = tr.live, ls = live?.status;
+  if (LIVE && ls) {
+    if (ls.state === 'ok' && lv) { he += ` · חי: ${lv.positioned} רכבות עם מיקום אמיתי, ${lv.delayed} באיחור`; en += ` · live: ${lv.positioned} trains with a real position, ${lv.delayed} running late`; }
+    else if (ls.state === 'error') { he += ' · חי: אין קשר לרכבת ישראל'; en += ' · live: no answer from Israel Railways'; }
+    else { he += ' · חי: מתחבר...'; en += ' · live: connecting...'; }
+  }
   ttEl.innerHTML = `<span dir="rtl">${he}</span><span dir="ltr">${en}</span>`;
 };
+/* live delays: poll the proxy, hand each digest to the trains */
+const live = LIVE ? createLive({ source: LIVE, every: 60, onData: (d) => { liveDigest = d; built.trains.applyLive(d); ttStatus(); } }) : null;
+if (live) live.start();
 loadTimetable('./timetable.json').then((tt) => {
   if (tt && !TOY) { timetable = tt; swapTrains(); app.timetable = { loaded: true, trips: tt.trips.length, fetched: tt.fetched }; }
   else app.timetable = { loaded: false };
@@ -283,6 +300,7 @@ if (osmParam !== 'off') {
       disposeNetworkObjects(built);
       network = live;
       built = buildNetworkObjects(live);
+      if (liveDigest) built.trains.applyLive(liveDigest);
       const km = live.edges.reduce((n, e) => n + e.len, 0);
       const when = new Date(osm.fetched);
       const day = when.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' });

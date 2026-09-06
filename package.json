@@ -13,9 +13,9 @@
     "check": "node scripts/rails-check.mjs",
     "shots": "node scripts/screenshot.mjs",
     "test:controls": "node scripts/interaction-test.mjs",
-    "fixture": "node scripts/osm-fixture.mjs && node scripts/timetable-fixture.mjs",
+    "fixture": "node scripts/osm-fixture.mjs && node scripts/timetable-fixture.mjs && node scripts/live-fixture.mjs",
     "timetable": "node scripts/fetch-gtfs.mjs",
-    "test:live": "node scripts/osm-fixture.mjs && node scripts/timetable-fixture.mjs && node scripts/rails-check.mjs http://127.0.0.1:4173/?osm=fixture && node scripts/interaction-test.mjs 'http://127.0.0.1:4173/?osm=fixture&desk'"
+    "test:live": "node scripts/osm-fixture.mjs && node scripts/timetable-fixture.mjs && node scripts/live-fixture.mjs && node scripts/rails-check.mjs 'http://127.0.0.1:4173/?osm=fixture&live=./live-fixture.json' && node scripts/interaction-test.mjs 'http://127.0.0.1:4173/?osm=fixture&desk'"
   },
   "dependencies": {
     "three": "^0.169.0"

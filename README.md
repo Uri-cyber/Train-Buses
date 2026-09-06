@@ -96,6 +96,35 @@ day cost little.
 
 Data: Israel Ministry of Transport GTFS, Israel Railways trips.
 
+### Live delays (`?live=`)
+
+Israel Railways publishes no feed of train positions, but the journey
+planner behind rail.co.il answers with every train of the day between two
+stations, and each train that is out on the line carries how many minutes
+late it is and which station it passed last. A dozen end-to-end journeys
+(Nahariya to Beer Sheva, Karmiel to Modiin, Jerusalem to Herzliya, ...)
+together touch every passenger line.
+
+That planner refuses browsers on other sites, so a tiny proxy asks it
+instead, once a minute at most for everybody: `worker/rail-live.js`, a
+Cloudflare Worker (the free plan is far more than enough). Deploy it
+(Cloudflare dashboard, Workers & Pages, Create, paste the file, Deploy) and
+give the page its address: `?live=https://<name>.<account>.workers.dev`,
+or put it in `LIVE_URL` in `src/main.js` so it is on by default.
+
+On the page each live train is recognised by where and when it calls (the
+feeds share no ids), and its timetable position is shifted by its delay.
+The status line reads `live: 14 trains with a real position, 3 running
+late`. Delays only make sense at true speed, so pair it with `?speed=1`.
+`?live=off` turns it off; the checks use a synthetic digest
+(`scripts/live-fixture.mjs`). The Actions tab has a hand-run workflow,
+"Probe the Israel Railways API", that runs the proxy once on GitHub's
+machines and prints what the railway answers right now.
+
+This is the unofficial API of the railway's own web app, with its public
+key. It can change or close without notice; when it does the page simply
+falls back to the timetable.
+
 ## The live network
 
 When the page opens it shows the bundled map at once, then asks the

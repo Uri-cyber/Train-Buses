@@ -21,14 +21,18 @@ export const RAIL_KEY = '5e64d66cf03f4547bcac5de2de06b566';        // the public
 
 /** end-to-end journeys that together touch every passenger line (Israel Railways station ids) */
 export const PAIRS = [
-  [1600, 7300],   // Nahariya - Beer Sheva Center: the coast, Ayalon, the south
-  [1820, 400],    // Karmiel - Modiin Center: Galilee, Haifa, Ben Gurion, Modiin
+  [1600, 7320],   // Nahariya - Beer Sheva Center: the coast, Ayalon, the south
+  [1840, 400],    // Karmiel - Modiin Center: Galilee, Haifa, Ben Gurion, Modiin
   [680, 3500],    // Jerusalem Yitzhak Navon - Herzliya: the fast line and Tel Aviv
-  [1840, 3700],   // Beit Shean - Tel Aviv Savidor: the valley line
-  [2300, 5800],   // Haifa Hof HaCarmel - Ashkelon: coast to the south coast
-  [8700, 9800],   // Kfar Saba Nordau - Rishon LeZion HaRishonim: Sharon line
-  [7500, 3700],   // Dimona - Tel Aviv: the Negev
-  [1220, 6300],   // Hutzot HaMifratz - Ashdod Ad Halom
+  [1280, 3700],   // Beit Shean - Tel Aviv Savidor: the valley line
+  [2300, 5900],   // Haifa Hof HaCarmel - Ashkelon: coast to the south coast
+  [8700, 9100],   // Kfar Saba Nordau - Rishon LeZion HaRishonim: the Sharon line
+  [7500, 3700],   // Dimona - Tel Aviv Savidor: the Negev
+  [9700, 3700],   // Ofakim - Tel Aviv Savidor: Sderot and Netivot
+  [6700, 6300],   // Jerusalem Malha - Beit Shemesh: the old Jerusalem line
+  [9800, 3500],   // Rishon LeZion Moshe Dayan - Herzliya: Ayalon suburban
+  [2940, 4690],   // Raanana West - Bat Yam Komemiyut: the Raanana line
+  [1300, 5800],   // Hutzot HaMifratz - Ashdod Ad Halom
 ];
 
 const railDay = () => {

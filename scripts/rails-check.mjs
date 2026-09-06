@@ -113,6 +113,14 @@ if (!live) {
   const live = await page.evaluate(() => window.__app.liveStatus);
   const tt = await page.evaluate(() => ({ ...window.__app.timetable, scheduled: window.__app.trains.scheduled, replay: window.__app.trains.replay, active: window.__app.trains.activeCount }));
   console.log('timetable:', JSON.stringify(tt));
+  // live delays (?live=): the digest must have been read and matched to today's runs
+  if (URL.includes('live=')) {
+    await page.waitForFunction(() => window.__app.live && window.__app.live.state === 'ok' && window.__app.live.matched > 0, null, { timeout: 30000 }).catch(() => {});
+    const lv = await page.evaluate(() => window.__app.live);
+    console.log('live:', JSON.stringify(lv));
+    if (!lv || lv.state !== 'ok') fail('live', `live delays not read: ${lv && lv.error}`);
+    else if (lv.matched < lv.trains * 0.5) fail('live', `live trains matched to the timetable: ${lv.matched} of ${lv.trains}`);
+  }
   await browser.close();
   if (/[?&]osm=/.test(URL) && !live?.applied) fail('live network not applied', JSON.stringify(live));
   if (live?.applied) console.log(`live network applied from ${live.source}: ${live.edges} edges, ${live.stations} stations, ${live.routes} routes in ${live.ms} ms`);

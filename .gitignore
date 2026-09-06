@@ -8,3 +8,4 @@ public/fixtures/
 public/timetable.json
 gtfs.zip
 data/timetable.json
+public/live-fixture.json
