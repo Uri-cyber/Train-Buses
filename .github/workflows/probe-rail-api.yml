@@ -18,21 +18,21 @@ jobs:
           try() {   # label url [extra curl args...]
             local label="$1" url="$2"; shift 2
             local code
+            : > body.txt
             code=$(curl -sS -m 25 -L -o body.txt -w '%{http_code}' -A 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0' \
               -H "ocp-apim-subscription-key: $KEY" -H 'accept: application/json, text/plain, */*' \
               -H 'origin: https://www.rail.co.il' -H 'referer: https://www.rail.co.il/' "$@" "$url" 2>&1) || code="ERR $code"
             echo "== $label"; echo "   $url"; echo "   HTTP $code, $(wc -c < body.txt 2>/dev/null || echo 0) bytes, type: $(file -b body.txt | cut -c1-40)"
-            echo "   $(tr -d '\r\n' < body.txt | cut -c1-700)"
+            echo "   $(tr -d '\r\n' < body.txt | cut -c1-400)"
           }
-          try "azurefd rjpa-prod searchTrainLuzForDateTime" "https://israelrail.azurefd.net/rjpa-prod/api/v1/timetable/searchTrainLuzForDateTime?$Q"
-          try "azurefd rjpa searchTrainLuzForDateTime"      "https://israelrail.azurefd.net/rjpa/api/v1/timetable/searchTrainLuzForDateTime?$Q"
-          try "rail-api.rail.co.il rjpa"                    "https://rail-api.rail.co.il/rjpa/api/v1/timetable/searchTrainLuzForDateTime?$Q"
-          try "rail-api.rail.co.il rjpa-prod"               "https://rail-api.rail.co.il/rjpa-prod/api/v1/timetable/searchTrainLuzForDateTime?$Q"
-          try "www.rail.co.il apiinfo"                      "https://www.rail.co.il/apiinfo/api/Plan/GetRoutes?OId=3700&TId=2300&Date=$(TZ=Asia/Jerusalem date +%Y%m%d)&Hour=$(TZ=Asia/Jerusalem date +%H%M)&isGoing=true&c=1"
-          try "azurefd common stations"                     "https://israelrail.azurefd.net/common/api/v1/stations?languageId=Hebrew&systemType=2"
-          try "rail-api common stations"                    "https://rail-api.rail.co.il/common/api/v1/stations?languageId=Hebrew&systemType=2"
-          try "azurefd root"                                "https://israelrail.azurefd.net/"
-          try "www.rail.co.il home"                         "https://www.rail.co.il/"
-          try "www.rail.co.il home, no headers"             "https://www.rail.co.il/" -H 'origin:' -H 'referer:' -H 'ocp-apim-subscription-key:'
-          try "mobile app host"                             "https://mobileapp.rail.co.il/"
+          for KEY in 4b0d355121fe4e0bb3d86e902efe9f20 5e64d66cf03f4547bcac5de2de06b566; do
+            echo "######## key $KEY"
+            for P in rjpa/api/v1/timetable/searchTrainLuzForDateTime rjpa-prod/api/v1/timetable/searchTrainLuzForDateTime rjpa/api/v1/timetable/searchTrain rjpa/api/v1/timetable/SearchTrainLuzForDateTime; do
+              for ST in 1 2; do
+                try "$P systemType=$ST" "https://rail-api.rail.co.il/$P?fromStation=3700&toStation=2300&date=$DAY&hour=$HOUR&scheduleType=1&systemType=$ST&languageId=Hebrew"
+              done
+            done
+            try "common stations" "https://rail-api.rail.co.il/common/api/v1/stations?languageId=Hebrew&systemType=2"
+            try "common Stations" "https://rail-api.rail.co.il/common/api/v1/Stations?languageId=Hebrew&systemType=1"
+          done
           echo; echo "== runner egress"; curl -sS -m 10 https://ifconfig.me; echo
