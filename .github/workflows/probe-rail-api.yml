@@ -23,16 +23,19 @@ jobs:
               -H "ocp-apim-subscription-key: $KEY" -H 'accept: application/json, text/plain, */*' \
               -H 'origin: https://www.rail.co.il' -H 'referer: https://www.rail.co.il/' "$@" "$url" 2>&1) || code="ERR $code"
             echo "== $label"; echo "   $url"; echo "   HTTP $code, $(wc -c < body.txt 2>/dev/null || echo 0) bytes, type: $(file -b body.txt | cut -c1-40)"
-            echo "   $(tr -d '\r\n' < body.txt | cut -c1-400)"
+            echo "   $(tr -d '\r\n' < body.txt | cut -c1-250)"
           }
-          for KEY in 4b0d355121fe4e0bb3d86e902efe9f20 5e64d66cf03f4547bcac5de2de06b566; do
-            echo "######## key $KEY"
-            for P in rjpa/api/v1/timetable/searchTrainLuzForDateTime rjpa-prod/api/v1/timetable/searchTrainLuzForDateTime rjpa/api/v1/timetable/searchTrain rjpa/api/v1/timetable/SearchTrainLuzForDateTime; do
-              for ST in 1 2; do
-                try "$P systemType=$ST" "https://rail-api.rail.co.il/$P?fromStation=3700&toStation=2300&date=$DAY&hour=$HOUR&scheduleType=1&systemType=$ST&languageId=Hebrew"
+          KEY=5e64d66cf03f4547bcac5de2de06b566
+          QS="fromStation=3700&toStation=2300&date=$DAY&hour=$HOUR&scheduleType=1&systemType=1&languageId=Hebrew"
+          for PFX in rjpa rjpa-prod rjpa/prod timetable luz api; do
+            for V in v1 v2 v3; do
+              for OP in timetable/searchTrainLuzForDateTime searchTrainLuzForDateTime timetable/searchTrainLuz timetable/SearchTrainLuzForDateTime Timetable/searchTrainLuzForDateTime; do
+                try "GET $PFX/api/$V/$OP" "https://rail-api.rail.co.il/$PFX/api/$V/$OP?$QS"
               done
             done
-            try "common stations" "https://rail-api.rail.co.il/common/api/v1/stations?languageId=Hebrew&systemType=2"
-            try "common Stations" "https://rail-api.rail.co.il/common/api/v1/Stations?languageId=Hebrew&systemType=1"
+          done
+          try "POST rjpa/api/v1/timetable/searchTrainLuzForDateTime" "https://rail-api.rail.co.il/rjpa/api/v1/timetable/searchTrainLuzForDateTime" -X POST -H 'content-type: application/json' -d "{\"fromStation\":3700,\"toStation\":2300,\"date\":\"$DAY\",\"hour\":\"$HOUR\",\"scheduleType\":1,\"systemType\":1,\"languageId\":\"Hebrew\"}"
+          for OP in common/api/v1/stations common/api/v1/StationsInfo common/api/v1/TrainsPositions common/api/v1/TrainPosition common/api/v1/delays common/api/v1/Delays common/api/v1/UpdatesForToday common/api/v1/Updates common/api/v1/updates common/api/v1/RealTime rjpa/api/v1/timetable/TrainsPosition rjpa/api/v1/realtime/trains; do
+            try "GET $OP" "https://rail-api.rail.co.il/$OP?languageId=Hebrew&systemType=1"
           done
           echo; echo "== runner egress"; curl -sS -m 10 https://ifconfig.me; echo
