@@ -19,8 +19,8 @@ export const TRACK = {
   gauge: 0.40, ballastHalf: 0.70, railW: 0.14, railH: 0.11,
   sleeperEvery: 1.2, lift: 0.06, step: 0.25, smoothKm: 2.6,
   bridgeAbove: 0.25, tunnelBelow: 0.25,
-  laneOffset: 0.70,        // each direction runs on its own track, this far from the centreline
-  corridorHalf: 1.40,      // half the width of the whole formation (laneOffset + ballastHalf)
+  laneOffset: 1.05,        // each direction runs on its own track, this far from the centreline
+  corridorHalf: 1.75,      // half the width of the whole formation (laneOffset + ballastHalf)
 };
 
 export function createRails(network, terrain) {

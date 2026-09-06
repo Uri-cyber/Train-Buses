@@ -46,23 +46,30 @@ export function createStations(network, rails, terrain) {
     const b = new Builder(s.id.length * 7);
     // platforms sit outside the toy trains on their lanes
     const off = TRACK.laneOffset + (0.62 * TRAIN_SCALE) / 2 + 0.55;
-    const PW = 0.9;                                    // platform width
-    const L = major ? 3.0 : 2.2;
+    const PW = 0.7;                                    // platform width
+    const L = major ? 2.0 : 1.3;
     for (const side of [-1, 1]) {
-      b.up(side * off, 0.0, 0, PW, 0.12, L, C.platform, { jitter: 0.03 });
-      b.up(side * (off - PW / 2 + 0.1), 0.12, 0, 0.1, 0.012, L, 0xe9c25a);     // yellow edge line
-      // barrel canopy from tilted slats over each platform
-      const cx = side * off, r = 0.65, y0 = 0.55;
-      for (let k = 0; k < 7; k++) {
-        const a0 = Math.PI * (k / 7), a1 = Math.PI * ((k + 1) / 7);
-        const am = (a0 + a1) / 2;
-        const len = r * (a1 - a0) * 1.05;
-        b.box(cx + Math.cos(am) * r, y0 + Math.sin(am) * r, 0, len, 0.05, L * 0.86, C.irWhite, { rotZ: am - Math.PI / 2, jitter: 0.02 });
+      b.up(side * off, 0.0, 0, PW, 0.1, L, C.platform, { jitter: 0.03 });
+      b.up(side * (off - PW / 2 + 0.08), 0.1, 0, 0.08, 0.012, L, 0xe9c25a);     // yellow edge line
+      const cx = side * off;
+      if (major) {
+        // barrel canopy from tilted slats over each platform, only where the big stations are
+        const r = 0.42, y0 = 0.4;
+        for (let k = 0; k < 7; k++) {
+          const a0 = Math.PI * (k / 7), a1 = Math.PI * ((k + 1) / 7);
+          const am = (a0 + a1) / 2;
+          const len = r * (a1 - a0) * 1.05;
+          b.box(cx + Math.cos(am) * r, y0 + Math.sin(am) * r, 0, len, 0.04, L * 0.8, C.irWhite, { rotZ: am - Math.PI / 2, jitter: 0.02 });
+        }
+        for (const zz of [-L * 0.3, 0, L * 0.3]) b.up(cx, 0.1, zz, 0.1, y0 - 0.1 + 0.03, 0.1, C.irBlue);
+      } else {
+        // a small shelter on the platform
+        b.up(cx, 0.1, 0, 0.5, 0.32, 0.5, C.irBlue);
+        b.up(cx, 0.42, 0, 0.6, 0.05, 0.6, C.irWhite);
       }
-      for (const zz of [-L * 0.36, 0, L * 0.36]) b.up(cx, 0.12, zz, 0.12, y0 - 0.12 + 0.03, 0.12, C.irBlue);
     }
     // station building set back on the platform's outer side
-    const bw = major ? 2.6 : 1.5, bd = major ? 1.2 : 0.8, bh = major ? 1.2 : 0.65;
+    const bw = major ? 1.9 : 1.0, bd = major ? 0.9 : 0.55, bh = major ? 0.9 : 0.45;
     const bx = -(off + PW / 2 + bd / 2 + 0.1);
     b.up(bx, 0.0, 0, bd, bh, bw, C.stucco, { rotY: 0, jitter: 0.03 });
     b.up(bx, bh, 0, bd + 0.1, 0.08, bw + 0.1, C.roofFlat);
@@ -71,9 +78,9 @@ export function createStations(network, rails, terrain) {
     const gb = new Builder();
     gb.box(bx + bd / 2 + 0.005, bh * 0.55, 0, 0.01, bh * 0.45, bw * 0.9, C.windowLit, { jitter: 0.05 });
     // name post
-    b.up(off + 0.8, 0.0, L * 0.35, 0.1, 1.8, 0.1, C.irBlue);
-    b.up(off + 0.8, 1.8, L * 0.35, 0.7, 0.35, 0.1, C.irWhite);
-    b.up(off + 0.8, 1.9, L * 0.35, 0.7, 0.05, 0.11, C.irRed);
+    b.up(off + 0.7, 0.0, L * 0.35, 0.08, 1.3, 0.08, C.irBlue);
+    b.up(off + 0.7, 1.3, L * 0.35, 0.55, 0.26, 0.08, C.irWhite);
+    b.up(off + 0.7, 1.38, L * 0.35, 0.55, 0.04, 0.09, C.irRed);
 
     const place = (geo) => { geo.rotateY(rot); geo.translate(s.x, y, s.z); return geo; };
     const geo = b.build(); if (geo) pieces.push(place(geo));
@@ -83,7 +90,7 @@ export function createStations(network, rails, terrain) {
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTexture(s.he, s.en), transparent: true, depthTest: false, sizeAttenuation: false }));
     sprite.scale.set(0.125, 0.039, 1);
     sprite.center.set(0.5, -0.55);
-    sprite.position.set(s.x, y + 1.6, s.z);
+    sprite.position.set(s.x, y + 1.3, s.z);
     sprite.renderOrder = 20;
     sprite.material.opacity = 0;
     group.add(sprite);
@@ -120,7 +127,7 @@ export function createStations(network, rails, terrain) {
       for (const s of stations) {
         const d = _v.set(s.x, s.y, s.z).distanceTo(camPos);
         // majors show from 70 km, the rest only once you are close
-        const near = s.major ? 70 : 22;
+        const near = s.major ? 45 : 13;
         let o = Math.max(0, Math.min(1, (near - d) / (near * 0.3)));
         if (s.id === selected && selectedT > 0) o = 1;
         s.sprite.material.opacity = o;

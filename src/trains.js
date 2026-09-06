@@ -119,9 +119,9 @@ export function createTrains(rails, terrain, stationsById = null) {
   for (const route of rails.routes) {
     const consist = route.kind === 'heritage' ? 'heritage'
       : route.kind === 'freight' ? (route.id === 'phosphate' ? 'freightHopper' : 'freightFlat') : 'passenger';
-    const n = Math.max(1, Math.min(4, 1 + Math.floor(route.length / 50)));
-    const nCars = consist === 'passenger' ? (route.length < 40 ? 3 : route.length < 120 ? 4 : 5)
-      : consist === 'heritage' ? 4 : 6;
+    const n = Math.max(1, Math.min(3, 1 + Math.floor(route.length / 90)));
+    const nCars = consist === 'passenger' ? (route.length < 40 ? 3 : 4)
+      : consist === 'heritage' ? 4 : 5;
     for (let k = 0; k < n; k++) {
       const cars = CONSISTS[consist].slice(0, nCars);
       const dir = k % 2 === 0 ? 1 : -1;
@@ -155,12 +155,27 @@ export function createTrains(rails, terrain, stationsById = null) {
     types[name] = { solid, glow, next: 0, len: spec.len * SCALE * ZS };
   }
 
+  const placed = [];                                 // sampled body points of trains placed so far
+  const bodyPoints = (route, d, dir, total) => {
+    const pts = [];
+    for (let back = 0; back <= total; back += 1.2) { const p = route.lookup.at(d - dir * back); pts.push([p.x, p.z]); }
+    return pts;
+  };
+  const clear = (pts) => pts.every(([x, z]) => placed.every(([px, pz]) => Math.hypot(px - x, pz - z) > 3.2));
   const trains = plans.map((p) => {
     const cars = p.cars.map((t) => ({ type: t, idx: types[t].next++, len: types[t].len }));
     const total = cars.reduce((s, c) => s + c.len + GAP, 0);
     const kind = p.route.kind === 'heritage' ? 'heritage' : p.route.kind === 'freight' ? 'freight' : 'passenger';
+    // start somewhere that overlaps no train already placed (shared corridors, junctions)
+    const lo = total * 0.55, hi = p.route.length - total * 0.55;
+    let d = Math.max(lo, Math.min(hi, p.start)), pts = bodyPoints(p.route, d, p.dir, total);
+    for (let k = 1; k <= 40 && !clear(pts); k++) {
+      d = lo + ((p.start - lo + k * 7.3) % Math.max(1, hi - lo));
+      pts = bodyPoints(p.route, d, p.dir, total);
+    }
+    placed.push(...pts);
     return {
-      id: p.id, route: p.route, cars, total, kind, d: p.start, dir: p.dir, side: p.dir, v: 0, dwell: 0, stopIdx: -1,
+      id: p.id, route: p.route, cars, total, kind, d, dir: p.dir, side: p.dir, v: 0, dwell: 0, stopIdx: -1,
       head: { x: 0, y: 0, z: 0, tx: 0, tz: 1 },      // world position of the front, travel tangent
     };
   });
@@ -204,20 +219,54 @@ export function createTrains(rails, terrain, stationsById = null) {
   };
   for (const t of trains) place(t);
 
-  // the closest a train may run to the one ahead, given both speeds
+  // the closest a train may run to the one ahead, given both speeds; and a
+  // stop before any train crossing the line ahead (junctions, station throats)
+  const BODY = 0.62 * SCALE;                          // body width, km
+  const crossing = (t, o) => {
+    // does any part of o lie in the box just ahead of t's head?
+    const H = t.head;
+    const n = Math.max(2, Math.ceil(o.total / 1.5));
+    let nearest = Infinity;
+    for (let i = 0; i <= n; i++) {
+      const back = (o.total * i) / n;
+      const px = o.head.x - o.head.tx * back, pz = o.head.z - o.head.tz * back;
+      const dx = px - H.x, dz = pz - H.z;
+      const ahead = dx * H.tx + dz * H.tz;
+      const lateral = Math.abs(dx * H.tz - dz * H.tx);
+      if (ahead > -0.3 && ahead < 6.5 && lateral < BODY + 0.5) nearest = Math.min(nearest, ahead);
+    }
+    return nearest;
+  };
   const headwayLimit = (t) => {
     let limit = Infinity;
     const H = t.head;
     for (const o of trains) {
       if (o === t) continue;
       const dot = H.tx * o.head.tx + H.tz * o.head.tz;
-      if (dot < 0.5) continue;                                   // not going our way
       const dx = o.head.x - H.x, dz = o.head.z - H.z;
       const ahead = dx * H.tx + dz * H.tz;
       const lateral = Math.abs(dx * H.tz - dz * H.tx);
-      if (ahead <= 0 || ahead > o.total + 12 || lateral > 1.2) continue;
-      const room = Math.max(0, ahead - o.total - 2);
-      limit = Math.min(limit, o.v + Math.sqrt(2 * ACCEL * room));
+      if (dot >= 0.5 && lateral <= 1.2 && ahead > -1.0 && ahead <= o.total + 12) {
+        // same lane, same way
+        if (ahead <= o.total + 2) {
+          // overlapping (trains start that way, or met at a junction): the one behind, or on a
+          // tie the higher id, drops back until the gap opens
+          if (ahead > 1.0 || t.id > o.id) limit = Math.min(limit, Math.max(0, o.v * 0.4 - 0.05));
+          continue;
+        }
+        // keep a gap that closes only as fast as braking allows
+        const room = ahead - o.total - 2;
+        limit = Math.min(limit, o.v + Math.sqrt(2 * ACCEL * room));
+        continue;
+      }
+      if (Math.hypot(dx, dz) > o.total + 6) continue;
+      // anything else in our path: wait for it to clear. If we block each other,
+      // whoever is further into the junction goes first
+      const near = crossing(t, o);
+      if (near === Infinity) continue;
+      const theirs = crossing(o, t);
+      if (theirs !== Infinity && (near < theirs || (near === theirs && t.id < o.id))) continue;
+      limit = Math.min(limit, Math.sqrt(2 * ACCEL * Math.max(0, near - 1.4)));
     }
     return limit;
   };
@@ -368,7 +417,7 @@ export function createTrains(rails, terrain, stationsById = null) {
         const plate = t.plate;
         let o = 0;
         if (t.id === followedId) o = nearView;
-        else if (focus) { const d = _f.set(t.head.x, t.head.y, t.head.z).distanceTo(focus); o = Math.max(0, Math.min(1, (28 - d) / 10)) * nearView; }
+        else if (focus) { const d = _f.set(t.head.x, t.head.y, t.head.z).distanceTo(focus); o = Math.max(0, Math.min(1, (14 - d) / 6)) * nearView; }
         if (o > 0.02) {
           refreshPlate(t);
           plate.position.set(t.head.x, t.head.y + 0.9 * SCALE, t.head.z);

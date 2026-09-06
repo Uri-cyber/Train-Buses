@@ -20,11 +20,11 @@ export function createLandmarks(world, terrain, occupancy, network) {
   /** ground point at lat/lon, nudged off any rail */
   const at = (lat, lon, r = 0.6) => {
     let [x, z] = P.toXZ(lon, lat);
-    for (let k = 0; k < 8; k++) {
+    for (let k = 0; k < 24; k++) {
       const h = occupancy.hit(x, z, r, (it) => it.kind === 'rail');
       if (!h) break;
       const dx = x - h.x, dz = z - h.z, d = Math.hypot(dx, dz) || 1;
-      x += (dx / d) * 0.5; z += (dz / d) * 0.5;
+      x += (dx / d) * 0.6; z += (dz / d) * 0.6;
     }
     return { x, z, y: terrain.heightAt(x, z) };
   };
@@ -47,7 +47,7 @@ export function createLandmarks(world, terrain, occupancy, network) {
     b.up(p.x, p.y, p.z, 1.6, 0.35, 1.7, 0xe3ddd0);                                // mall podium
     mark('מגדלי עזריאלי', 'Azrieli Center', p, 1.2);
     // the beach: umbrellas and a lifeguard tower along Gordon beach
-    const beach = at(32.086, 34.7695, 0.2);
+    const beach = at(32.086, 34.7695, 0.5);
     for (let i = 0; i < 16; i++) {
       const bx = beach.x + (R() - 0.5) * 0.35, bz = beach.z - 1.4 + i * 0.18;
       b.cyl(bx, terrain.heightAt(bx, bz) + 0.11, bz, 0.06, 0.02, [0x2f6fae, 0xe0b23a, 0xc94a3b, 0xffffff][i % 4], 8, { rTop: 0.002 });

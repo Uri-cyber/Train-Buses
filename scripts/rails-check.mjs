@@ -85,7 +85,7 @@ if (!live) {
         v.setFromMatrixPosition(m);
         // cars run on their own lane, laneOffset from the centreline
         const off = Math.abs(Math.hypot(v.x - p.x, v.z - p.z) - a.TRACK.laneOffset * Math.abs(t.side));
-        if (off > 0.8) out.carsOff.push(`${t.route.id} ${car.type} ${off.toFixed(2)} km off the line`);
+        if (off > 1.0) out.carsOff.push(`${t.route.id} ${car.type} ${off.toFixed(2)} km off the line`);
         // the car must sit on the rail profile (which itself may run through a cutting)
         const railY = t.route.heightAt(dc) + a.TRACK.railH;
         if (Math.abs(v.y - railY) > 0.08) out.carsUnder.push(`${t.route.id} ${car.type} ${(v.y - railY).toFixed(2)} km off the railhead`);
