@@ -54,3 +54,9 @@ jobs:
           console.log(JSON.stringify(trains.filter((t) => t.delay !== null).slice(0, 3)));
           if (r.status !== 200 || trains.length < 100) process.exit(1);
           "
+      - name: The deployed proxy the page uses
+        run: |
+          URL=$(grep -oE "const LIVE_URL = '[^']+'" src/main.js | cut -d"'" -f2)
+          echo "$URL"
+          curl -sS -m 40 -D - -o live.json -H 'origin: https://uri-cyber.github.io' "$URL" | head -12
+          node -e "const d=require('./live.json'); const t=Object.values(d.trains||{}); console.log('trains', t.length, 'positioned', t.filter(x=>x.delay!==null).length, 'late', t.filter(x=>x.delay>0).length, 'age s', Math.round((Date.now()-d.fetched)/1000))"

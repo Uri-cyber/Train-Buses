@@ -110,7 +110,7 @@ instead, once a minute at most for everybody: `worker/rail-live.js`, a
 Cloudflare Worker (the free plan is far more than enough). Deploy it
 (Cloudflare dashboard, Workers & Pages, Create, paste the file, Deploy) and
 give the page its address: `?live=https://<name>.<account>.workers.dev`,
-or put it in `LIVE_URL` in `src/main.js` so it is on by default.
+The published page uses `https://israel-by-rail-live.meiriuri.workers.dev/live` by default (`LIVE_URL` in `src/main.js`).
 
 On the page each live train is recognised by where and when it calls (the
 feeds share no ids), and its timetable position is shifted by its delay.

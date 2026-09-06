@@ -66,7 +66,7 @@ const TOY = params.get('trains') === 'toy';        // ?trains=toy: the made-up f
 const TIME_SCALE = Math.max(1, Math.min(60, +params.get('speed') || 8));
 // Live delays from Israel Railways come through a small proxy (worker/rail-live.js):
 // ?live=<its url>, or the address below once one is deployed. ?live=off turns it off.
-const LIVE_URL = '';
+const LIVE_URL = 'https://israel-by-rail-live.meiriuri.workers.dev/live';
 const LIVE = params.get('live') === 'off' ? '' : (params.get('live') || LIVE_URL);
 let liveDigest = null;
 let ttClock = null;                               // the sped-up timetable clock, seconds after midnight
