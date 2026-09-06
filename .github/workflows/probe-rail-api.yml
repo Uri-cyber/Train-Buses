@@ -46,12 +46,16 @@ jobs:
         run: |
           node --input-type=module -e "
           import worker from './worker/rail-live.js';
-          const t0 = Date.now();
-          const r = await worker.fetch(new Request('https://example.workers.dev/live'));
-          const d = await r.json();
-          const trains = Object.values(d.trains || {});
-          console.log('HTTP', r.status, 'in', Date.now() - t0, 'ms;', Object.keys(d.stations || {}).length, 'stations;', trains.length, 'trains;', trains.filter((t) => t.delay !== null).length, 'with a live position;', trains.filter((t) => t.delay > 0).length, 'late');
-          console.log(JSON.stringify(trains.filter((t) => t.delay !== null).slice(0, 3)));
+          let trains = [], r, d;
+          for (let i = 0; i < 6; i++) {
+            const t0 = Date.now();
+            r = await worker.fetch(new Request('https://example.workers.dev/live'));
+            d = await r.json();
+            trains = Object.values(d.trains || {});
+            console.log('call', i + 1, 'HTTP', r.status, 'in', Date.now() - t0, 'ms; pairs', JSON.stringify(d.pairs), ';', trains.length, 'trains;', trains.filter((t) => t.delay !== null).length, 'with a live position;', trains.filter((t) => t.delay > 0).length, 'late');
+            if (d.pairs && d.pairs.fresh >= d.pairs.total) break;
+          }
+          console.log(JSON.stringify(trains.filter((t) => t.delay !== null).slice(0, 2)));
           if (r.status !== 200 || trains.length < 100) process.exit(1);
           "
       - name: The deployed proxy the page uses

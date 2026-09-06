@@ -101,13 +101,15 @@ Data: Israel Ministry of Transport GTFS, Israel Railways trips.
 Israel Railways publishes no feed of train positions, but the journey
 planner behind rail.co.il answers with every train of the day between two
 stations, and each train that is out on the line carries how many minutes
-late it is and which station it passed last. A dozen end-to-end journeys
-(Nahariya to Beer Sheva, Karmiel to Modiin, Jerusalem to Herzliya, ...)
-together touch every passenger line.
+late it is and which station it passed last. A search only lists trains
+that call at both ends, so to see every train the proxy asks about every
+origin-destination pair in today's timetable (it learns them from the
+page's own `timetable.json` a few times a day, about 80 pairs), refreshing
+twenty of them per request so each is about a minute old.
 
 That planner refuses browsers on other sites, so a tiny proxy asks it
-instead, once a minute at most for everybody: `worker/rail-live.js`, a
-Cloudflare Worker (the free plan is far more than enough). Deploy it
+instead, for everybody: `worker/rail-live.js`, a Cloudflare Worker (the
+free plan is far more than enough). Deploy it
 (Cloudflare dashboard, Workers & Pages, Create, paste the file, Deploy) and
 give the page its address: `?live=https://<name>.<account>.workers.dev`,
 The published page uses `https://israel-by-rail-live.meiriuri.workers.dev/live` by default (`LIVE_URL` in `src/main.js`).
