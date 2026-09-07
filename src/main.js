@@ -61,13 +61,14 @@ let network = bundledNetwork;
 let built = null;
 let timetable = null;                              // the real Israel Railways timetable, once loaded
 const TOY = params.get('trains') === 'toy';        // ?trains=toy: the made-up fleet instead
-// Real trains at real speed barely move on a map of a whole country, so the timetable
-// runs eight times faster than the clock by default; ?speed=1 is true real time.
-const TIME_SCALE = Math.max(1, Math.min(60, +params.get('speed') || 8));
-// The sky has its own fast clock so the day actually happens on a screen: it starts at Israel's
-// hour, runs at TIME_SCALE, and three times faster through the night (19:30 to 05:30) so a night
-// lasts about 25 real minutes at x8. ?sky=real keeps the sun on Israel's real time.
-const SKY_REAL = params.get('sky') === 'real';
+// The trains run on Israel's clock: what you see is where the trains are now.
+// ?speed=8 runs the timetable eight times faster, which reads better as a moving
+// picture but is no longer the current moment.
+const TIME_SCALE = Math.max(1, Math.min(60, +params.get('speed') || 1));
+// The sun is where it really is over Israel right now. ?sky=fast gives the sky its own
+// clock instead (TIME_SCALE by day, three times that through the night, so a whole day
+// plays out in a few hours) for when you would rather watch the light change than the clock.
+const SKY_REAL = params.get('sky') !== 'fast';
 const NIGHT_BOOST = 3;
 const isSkyNight = (h) => h >= 19.5 || h < 5.5;
 let skyClock = null;                              // the sky's own hour (0..24), see above
@@ -280,12 +281,13 @@ const ttStatus = () => {
   const tr = built.trains;
   if (!tr.scheduled) { ttEl.innerHTML = '<span dir="rtl">רכבות: שירות מדומה (אין לוח זמנים)</span><span dir="ltr">Trains: made-up service (no timetable)</span>'; return; }
   const when = new Date(timetable.fetched).toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' });
-  const scale = TIME_SCALE > 1 ? ` · ×${TIME_SCALE}` : '';
+  const scale = TIME_SCALE > 1 ? ` · ×${TIME_SCALE}` : ' · בזמן אמת';
+  const scaleEn = TIME_SCALE > 1 ? ` · ×${TIME_SCALE}` : ' · in real time';
   let he = tr.replay ? `לוח זמנים: רכבת ישראל, עודכן ${when} · שקט עכשיו, משדר בוקר יום חול${scale}` : `לוח זמנים: רכבת ישראל, עודכן ${when} · ${tr.activeCount} רכבות בדרך${scale}`;
-  let en = tr.replay ? `Timetable: Israel Railways (MOT GTFS), updated ${when} · quiet now, replaying a weekday morning${scale}` : `Timetable: Israel Railways (MOT GTFS), updated ${when} · ${tr.activeCount} trains running${scale}`;
+  let en = tr.replay ? `Timetable: Israel Railways (MOT GTFS), updated ${when} · quiet now, replaying a weekday morning${scaleEn}` : `Timetable: Israel Railways (MOT GTFS), updated ${when} · ${tr.activeCount} trains running${scaleEn}`;
   const lv = tr.live, ls = live?.status;
   if (LIVE && ls) {
-    if (ls.state === 'ok' && lv) { he += ` · חי: ${lv.positioned} רכבות עם מיקום אמיתי, ${lv.delayed} באיחור`; en += ` · live: ${lv.positioned} trains with a real position, ${lv.delayed} running late`; }
+    if (ls.state === 'ok' && lv) { he += ` · חי: ${lv.positioned} רכבות דיווחו איפה הן, ${lv.delayed} באיחור`; en += ` · live: ${lv.positioned} trains reporting where they are, ${lv.delayed} running late`; }
     else if (ls.state === 'error') { he += ' · חי: אין קשר לרכבת ישראל'; en += ' · live: no answer from Israel Railways'; }
     else { he += ' · חי: מתחבר...'; en += ' · live: connecting...'; }
   }

@@ -449,7 +449,11 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
       if (!prog) { deactivate(t); continue; }
       if (!activate(t)) continue;
       activeNow++;
-      const d0 = run.stopD[prog.i], d1 = run.stopD[Math.min(prog.i + 1, run.stopD.length - 1)];
+      // a live train sits on the leg it was last reported on; the fraction along that leg
+      // still comes from the timetable, because no public feed gives a position between stations
+      const seg = run.liveSeg >= 0 && run.liveSeg < run.stopD.length - 1 && !replay
+        ? Math.max(run.liveSeg, Math.min(run.liveSeg + 1, prog.i)) : prog.i;
+      const d0 = run.stopD[seg], d1 = run.stopD[Math.min(seg + 1, run.stopD.length - 1)];
       const target = Math.max(t.total * 0.55, Math.min(t.route.length - t.total * 0.55, d0 + (d1 - d0) * prog.f));
       // a jump (time scrubbed, just appeared) is not a speed; otherwise smooth the frame-to-frame estimate
       const raw = dt > 0 ? Math.abs(target - t.d) / dt : 0;
@@ -704,7 +708,7 @@ function prepareSchedule({ timetable, router, P, makeRoute }, rails, stationsByI
       const hhmm = (secs) => { const m = ((Math.round(secs / 60) % 1440) + 1440) % 1440; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
       let matched = 0, delayed = 0, positioned = 0;
       for (const r of runs) {
-        r.delay = 0; r.liveNum = null;
+        r.delay = 0; r.liveNum = null; r.liveSeg = -1;
         if (!r.today) continue;
         let hit = null, votes = 0;
         for (const [stopId, arr] of r.stops) {
@@ -715,6 +719,16 @@ function prepareSchedule({ timetable, router, P, makeRoute }, rails, stationsByI
         if (!hit || votes < 2) continue;          // two calls agree: it is the same train
         matched++; r.liveNum = hit.num;
         if (hit.delay !== null) { positioned++; r.delay = hit.delay * 60; if (hit.delay > 0) delayed++; }
+        // Israel Railways also reports the station the train has actually passed. That is a
+        // real observation, not a guess from the timetable, so the train is put on that leg
+        // of its route whatever the schedule says.
+        r.liveSeg = -1;
+        const cur = hit.cur != null ? apiStation[hit.cur] : null;
+        if (cur != null) {
+          for (let i = 0; i < r.stops.length; i++) {
+            if (stopToStation[r.stops[i][0]] === cur) { r.liveSeg = i; break; }
+          }
+        }
       }
       sched.live = { fetched: digest.fetched, trains: Object.keys(digest.trains).length, matched, positioned, delayed };
     },

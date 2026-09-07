@@ -4,9 +4,9 @@ A cartoon 3D Israel seen from the air, carrying the real railway network with
 toy-sized trains on it: Israel Railways double-deckers, the Valley Railway's
 steam train and potash and container freights. It is made to be left on a
 screen: one click to start, then the camera rides from train to train on its
-own, all day, to slow generated music. The page opens at Israel's current
-time, then the sky runs ahead on the fast clock with short nights, so the
-whole day plays out while you watch.
+own, all day, to slow generated music. It runs on Israel's clock: the
+sun is where it really is, and the trains are the ones out on the line right
+now, delays and all.
 
 Everything you see is generated in code. There are no downloaded models,
 textures, fonts or sounds. The one thing that is not invented is the map:
@@ -48,9 +48,10 @@ The page goes full screen, the music starts, and the tour begins: the camera
 flies to a train, settles into one of four framings (a rear ride, a high
 reveal, a low ride, a wide landscape), holds still long enough to read the
 name plate, drifts around it for half a minute, then glides to the next one.
-Meanwhile the day runs: the sun crosses the sky, cloud shadows drift over the
-land, sunset warms the west, city windows come on one by one, and a short
-starlit night follows before dawn. That is all there is to do. `M` mutes the music, `Esc` leaves full
+The sun is where it really is over Israel at that moment, the trains are where
+they really are, and the light changes through the day as the day does: cloud
+shadows drift, sunset warms the west, city windows come on one by one, and the
+night is a real night. That is all there is to do. `M` mutes the music, `Esc` leaves full
 screen, and `?music=off` in the address opens without sound.
 
 Touch the mouse and the camera is yours; after 45 quiet seconds the tour
@@ -87,15 +88,13 @@ route is computed through them, and the train is placed by the clock: at
 speed. Trips sharing a calling pattern share a route, so a thousand trips a
 day cost little.
 
-- Real time means real speed, and on a map of a whole country a train covers
-  its own length in a minute, which reads as standing still. So by default the
-  timetable runs eight times faster than the clock, starting from now: the
-  trains, routes and order are real, the positions run ahead of the wall
-  clock. `?speed=1` is true real time, `?speed=20` a time-lapse.
-- The sky runs on the same fast clock, starting from Israel's hour, and three
-  times faster again through the night (19:30 to 05:30), so at x8 a night
-  lasts about 25 real minutes instead of a third of the show. `?sky=real`
-  keeps the sun on Israel's real time.
+- By default the page runs on Israel's clock: at 08:14 you see the trains that
+  are between stations at 08:14. Real time means real speed, and on a map of a
+  whole country a train covers its own length in a minute, so from far out they
+  crawl; the tour camera rides close enough to see them move. `?speed=8` runs
+  the timetable eight times faster if you would rather watch a moving picture
+  than the current moment, and `?sky=fast` does the same for the sun and the
+  light.
 - Shabbat and the small hours are quiet, so when fewer than three trains are
   running the page replays a weekday morning and the status line says so.
 - No feed, no trains? `?trains=toy` brings back the made-up service. The
@@ -104,6 +103,22 @@ day cost little.
   (`data/timetable.json`, about 400 KB from a 300 MB zip).
 
 Data: Israel Ministry of Transport GTFS, Israel Railways trips.
+
+### How current the trains are
+
+Three different things, and only two of them are live:
+
+- **The route and the timetable are real.** Israel Railways' own trips from the
+  Ministry of Transport feed, refreshed every night.
+- **The delay and the leg are real.** Every minute the proxy asks Israel
+  Railways where each train is. What comes back is how many minutes late it is
+  and which station it has just passed, so a train is put on that leg of its
+  route whatever the timetable says.
+- **The exact point between two stations is not measured.** No public feed
+  gives a train's position between stations, so the page slides it along the
+  leg by the clock. Between Lod and Ramla a train can be a kilometre or two
+  from where it really is; which line it is on, which way it is going, which
+  station it just left and how late it is are real.
 
 ### Live delays (`?live=`)
 
@@ -192,7 +207,6 @@ Map data (c) OpenStreetMap contributors, ODbL.
   are shown for context and sink into the sea beyond 32 km from the border.
 - **Sea and lakes**: one sheet at sea level over ocean cells, shaded by depth;
   the Kinneret at -210 m and the Dead Sea at -430 m.
-- **Sun**: the true solar position for the sky clock (Israel's hour, run ahead at `?speed`; `?sky=real` for the real time). Golden hour, a west-lit sunset and a blue hour follow from it.
 - **Rails**: every graph edge drawn once as double track, draped on the terrain
   with a smoothed profile; tunnel portals and piers appear where the profile
   leaves the ground.
