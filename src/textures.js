@@ -158,3 +158,29 @@ export function cloudCover(size = 256) {
   g.putImageData(img, 0, 0);
   return finish(cv);
 }
+
+/**
+ * The moon: a crisp white disc with a soft edge, bitten by the shadow of its
+ * phase. `phase` is 0 at new moon, 0.5 at full, so the dark circle slides
+ * across and off the disc over a month.
+ */
+export function moonDisc(size = 64, phase = 0.5) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  const r = size * 0.45, cx = size / 2, cy = size / 2;
+  const lit = g.createRadialGradient(cx, cy, r * 0.2, cx, cy, r);
+  lit.addColorStop(0, '#fffdf2'); lit.addColorStop(0.82, '#f4efdc'); lit.addColorStop(1, 'rgba(244, 239, 220, 0)');
+  g.fillStyle = lit;
+  g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
+  // a couple of pale seas, so it is a moon and not a dot
+  g.fillStyle = 'rgba(198, 194, 178, 0.55)';
+  g.beginPath(); g.arc(cx - r * 0.25, cy - r * 0.2, r * 0.26, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.arc(cx + r * 0.22, cy + r * 0.28, r * 0.18, 0, Math.PI * 2); g.fill();
+  // the phase: cut the unlit part away
+  g.globalCompositeOperation = 'destination-out';
+  g.beginPath(); g.arc(cx + (phase - 0.5) * 4 * r, cy, r * 1.02, 0, Math.PI * 2); g.fill();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}

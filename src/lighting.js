@@ -25,6 +25,7 @@ export function createLighting(scene, renderer) {
   scene.add(moon);
 
   const _target = new THREE.Vector3();
+const _dir = new THREE.Vector3();
   return {
     sun, hemi, moon,
     /**
@@ -36,12 +37,16 @@ export function createLighting(scene, renderer) {
       const { dir, elevation: el, day } = sky;
       _target.copy(focus);
       sun.target.position.copy(_target);
-      sun.position.copy(_target).addScaledVector(dir, 600);
+      // one shadow-casting light all day: once the sun is down it swings over the zenith to the
+      // moon's side, so buildings and trains keep a faint cool shadow instead of going flat
+      const night = clamp01((-el - 0.02) * 8);
+      _dir.copy(dir).lerp(sky.moonDir ?? _dir.set(-dir.x, -dir.y, -dir.z), night).normalize();
+      sun.position.copy(_target).addScaledVector(_dir, 600);
       // amber at the horizon, gold through the golden hour, neutral by mid-morning; once the sun is
       // under the horizon its faint fill turns cool so the desert does not glow red all night
       const sunset = mixHex(0x6a6a88, 0xffa860, clamp01((el + 0.03) * 30));
-      sun.color.setHex(mixHex(sunset, mixHex(0xffc98a, C.sun, clamp01(el * 4)), clamp01(el * 10)));
-      sun.intensity = 0.12 + Math.pow(day, 0.75) * 1.9;
+      sun.color.setHex(mixHex(mixHex(sunset, 0x93a9d6, night), mixHex(0xffc98a, C.sun, clamp01(el * 4)), clamp01(el * 10)));
+      sun.intensity = 0.12 + Math.pow(day, 0.75) * 1.9 + night * 0.34;
       // shadow box hugs what is on screen
       const S = Math.max(6, Math.min(280, dist * 0.95));
       const cam = sun.shadow.camera;
@@ -49,12 +54,11 @@ export function createLighting(scene, renderer) {
       cam.updateProjectionMatrix();
       sun.shadow.needsUpdate = true;
 
-      hemi.color.setHex(mixHex(0x10203a, C.horizonDay, day));
-      hemi.groundColor.setHex(mixHex(mixHex(0x0b0f18, 0xcbb894, day), 0x8a7a9a, sky.blueHour * 0.6));
+      hemi.color.setHex(mixHex(0x1a2a4a, C.horizonDay, day));
+      hemi.groundColor.setHex(mixHex(mixHex(0x121620, 0xcbb894, day), 0x8a7a9a, sky.blueHour * 0.6));
       hemi.intensity = 0.14 + day * 0.8;
 
-      moon.position.copy(_target).addScaledVector(dir, -600);
-      moon.intensity = clamp01((-el - 0.04) * 5) * 0.35;
+      moon.intensity = 0;                       // one shadow caster only: swapping them recompiles every program
     },
   };
 }

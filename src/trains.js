@@ -362,11 +362,19 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
 
   // headlights: an additive cone ahead of every train, on at night
   const beamGeo = new THREE.ConeGeometry(0.55 * SCALE, 2.2 * SCALE, 12, 1, true).rotateX(-Math.PI / 2).translate(0, 0, 1.1 * SCALE);
-  const beams = new THREE.InstancedMesh(beamGeo, new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, side: THREE.DoubleSide }), Math.max(1, maxSlots));
+  const beams = new THREE.InstancedMesh(beamGeo, new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, side: THREE.DoubleSide }), Math.max(1, maxSlots));
   for (let i = 0; i < beams.count; i++) beams.setMatrixAt(i, ZERO);
   beams.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   beams.name = 'headlights'; beams.renderOrder = 5;
   group.add(beams);
+  // the pool of light each headlight throws on the track ahead: a flat disc that
+  // stretches with speed. Additive and faint, so from above it never reads as paint.
+  const poolGeo = new THREE.CircleGeometry(1, 16).rotateX(-Math.PI / 2);
+  const pools = new THREE.InstancedMesh(poolGeo, new THREE.MeshBasicMaterial({ color: 0xffe0a0, transparent: true, opacity: 0.10, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, fog: false }), Math.max(1, maxSlots));
+  for (let i = 0; i < pools.count; i++) pools.setMatrixAt(i, ZERO);
+  pools.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  pools.name = 'headlight pools'; pools.renderOrder = 4; pools.castShadow = false; pools.receiveShadow = false;
+  group.add(pools);
 
   // name plates: route and next stop, floating over the front of the train
   const stationName = (id, key) => (stationsById && stationsById[id] ? stationsById[id][key] : '');
@@ -420,6 +428,7 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
       ty.free.push(car.idx);
     }
     beams.setMatrixAt(t.slot, ZERO);
+    pools.setMatrixAt(t.slot, ZERO);
     t.freeSlots.push(t.slot); t.slot = -1; t.cars = null; t.active = false; t.v = 0;
     if (t.plate) t.plate.visible = false;
   };
@@ -456,7 +465,7 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
   for (const m of glowMats) m.color.setScalar(1);
   const _f = new THREE.Vector3();
   return {
-    group, trains, types, SCALE, smoke, beams, scheduled,
+    group, trains, types, SCALE, smoke, beams, pools, scheduled,
     get replay() { return replay; },
     get activeCount() { return scheduled ? activeNow : trains.length; },
     get source() { return scheduled ? sched.source : 'toy'; },
@@ -556,16 +565,28 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
 
       // headlights and plates
       const nearView = Math.max(0, Math.min(1, (160 - viewDist) / 60));
+      // with no train being ridden, only the three nearest plates show, so they do not pile
+      // up over Tel Aviv where a dozen trains sit within a plate's width of each other
+      let cut = Infinity;
+      if (focus && !followedId && nearView > 0) {
+        const ds = [];
+        for (const t of trains) if (t.active) ds.push(_f.set(t.head.x, t.head.y, t.head.z).distanceTo(focus));
+        ds.sort((a, b) => a - b);
+        cut = ds.length > 3 ? ds[2] : Infinity;
+      }
       const beamScale = lightsOn ? 1 : smoothstep(0.38, 0.72, night);   // headlights fade up, never snap
       for (const t of trains) {
         if (!t.active) continue;
         const rot = Math.atan2(t.head.tx, t.head.tz);
-        setInstance(beams, t.slot, t.head.x, t.head.y + 0.22 * SCALE, t.head.z, rot, beamScale, beamScale, beamScale);
+        const fast = Math.max(0, Math.min(1, t.v / 0.35));
+        setInstance(beams, t.slot, t.head.x, t.head.y + 0.22 * SCALE, t.head.z, rot, beamScale, beamScale, beamScale * (1 + 0.35 * fast));
+        setInstance(pools, t.slot, t.head.x + t.head.tx * 1.6 * SCALE, t.head.y + 0.03, t.head.z + t.head.tz * 1.6 * SCALE,
+          rot, 0.9 * SCALE * beamScale, 1, 2.0 * SCALE * (1 + 0.5 * fast) * beamScale);
         let o = 0;
         if (t.id === followedId) o = 1;                       // the ridden train is always legible
         else if (focus && !followedId) {                      // one plate at a time while the tour rides
           const d = _f.set(t.head.x, t.head.y, t.head.z).distanceTo(focus);
-          o = Math.max(0, Math.min(1, (14 - d) / 6)) * nearView;
+          if (d <= cut) o = Math.max(0, Math.min(1, (14 - d) / 6)) * nearView;
         }
         t.plateO = (t.plateO || 0) + (o - (t.plateO || 0)) * Math.min(1, dt * 5);   // plates fade, never pop
         if (t.plateO > 0.02) {
@@ -575,6 +596,7 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
         } else if (t.plate) t.plate.visible = false;
       }
       beams.instanceMatrix.needsUpdate = true;
+      pools.instanceMatrix.needsUpdate = true;
     },
     nearestTo(point) {
       let best = null, bd = Infinity;
