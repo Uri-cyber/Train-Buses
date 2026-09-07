@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { makeProjection, sampleField } from './geo.js';
-import { yOf, LAKE_LEVEL } from './terrain.js';
+import { yOf, LAKE_LEVEL, cloudShadow } from './terrain.js';
 import { C, mixHex, smooth } from './palette.js';
 import { GRADIENT } from './builder.js';
 
@@ -45,7 +45,7 @@ export function createSea(world, terrain) {
     col[i * 3] = tint.r; col[i * 3 + 1] = tint.g; col[i * 3 + 2] = tint.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const sea = new THREE.Mesh(geo, material(undefined, 0.86));
+  const sea = new THREE.Mesh(geo, cloudShadow(material(undefined, 0.86), 0.55));   // cloud shadows cross onto the shallows
   sea.position.y = 0;
   sea.renderOrder = 2;
   sea.name = 'mediterranean';

@@ -87,7 +87,7 @@ export function createStations(network, rails, terrain) {
     const glow = gb.build(); if (glow) glowPieces.push(place(glow));
 
     // name plate: a sprite that keeps its pixel size
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTexture(s.he, s.en), transparent: true, depthTest: false, sizeAttenuation: false }));
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTexture(s.he, s.en), transparent: true, depthTest: false, sizeAttenuation: false, fog: false }));
     sprite.scale.set(0.125, 0.039, 1);
     sprite.center.set(0.5, -0.55);
     sprite.position.set(s.x, y + 1.0, s.z);

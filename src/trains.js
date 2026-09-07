@@ -380,7 +380,7 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
   };
   const ensurePlate = (t) => {
     if (t.plate) return;
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: null, transparent: true, depthTest: false, sizeAttenuation: false }));
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: null, transparent: true, depthTest: false, sizeAttenuation: false, fog: false }));
     sprite.scale.set(0.17, 0.05, 1);
     sprite.center.set(0.5, -0.4);
     sprite.renderOrder = 21;

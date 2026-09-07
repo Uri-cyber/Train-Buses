@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GRADIENT } from './builder.js';
 import { makeMask, makeProjection, distanceTransform, sampleField } from './geo.js';
 import { C, mixHex, smooth, clamp01 } from './palette.js';
-import { noise2, fbm, groundNormal } from './textures.js';
+import { noise2, fbm, groundNormal, cloudCover } from './textures.js';
 
 /**
  * The land. A heightfield sculpted from Israel's named relief (there is no
@@ -13,6 +13,35 @@ import { noise2, fbm, groundNormal } from './textures.js';
 export const VEXAG = 3.0;
 export const yOf = (metres) => (metres / 1000) * VEXAG;
 export const LAKE_LEVEL = { 'Sea of Galilee': -210, 'Dead Sea': -430 };   // metres, real
+
+/* ------------------------------------------------------- cloud shadows */
+/**
+ * Shared uniforms for the drifting cloud shadows: a tiling cover texture
+ * scrolled by time, and how dark the shadows are (0 at night and on 'low').
+ * The texture is made once, in createTerrain.
+ */
+export const CLOUD = { tex: { value: null }, time: { value: 0 }, amt: { value: 0 } };
+/**
+ * Darkens a toon material's base colour where the cloud cover is thick. The
+ * multiply lands after color_fragment and before the toon lighting step, so
+ * the flat bands survive (a band boundary moves, colours do not blend).
+ * 0.006 makes the 256 px tile about 170 km, so blotches are 20 to 40 km across
+ * like the sprite clouds, and 0.0012 scrolls them at their drift speed.
+ */
+export function cloudShadow(mat, strength = 1) {
+  mat.onBeforeCompile = (s) => {
+    s.uniforms.uCloud = CLOUD.tex; s.uniforms.uTime = CLOUD.time; s.uniforms.uCloudAmt = CLOUD.amt;
+    s.vertexShader = s.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec2 vWorldXZ;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWorldXZ = (modelMatrix * vec4(transformed, 1.0)).xz;');
+    s.fragmentShader = s.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform sampler2D uCloud; uniform float uTime, uCloudAmt; varying vec2 vWorldXZ;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\nfloat cs = texture2D(uCloud, vWorldXZ * 0.006 + vec2(uTime * 0.0012, 0.0)).r; diffuseColor.rgb *= 1.0 - uCloudAmt * ' + strength.toFixed(3) + ' * smoothstep(0.52, 0.72, cs);');
+  };
+  // toon programs are shared between materials; the key keeps this variant apart from the plain one
+  mat.customProgramCacheKey = () => 'cloud' + strength.toFixed(3);
+  return mat;
+}
 
 const noise = noise2(2024);
 const D2R = Math.PI / 180;
@@ -160,6 +189,8 @@ export function createTerrain(world, opts = {}) {
   // flat facets and three lighting steps: a cartoon relief map
   const mat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: GRADIENT });
   mat.flatShading = true;
+  if (!CLOUD.tex.value) CLOUD.tex.value = cloudCover(256);
+  cloudShadow(mat, 1.0);
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true; mesh.castShadow = true;
   mesh.name = 'terrain';

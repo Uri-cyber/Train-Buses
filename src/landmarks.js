@@ -194,7 +194,7 @@ export function createLandmarks(world, terrain, occupancy, network) {
 
   // gold plates
   const sprites = list.map((l) => {
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTexture(l.he, l.en, { plate: 'rgba(72, 48, 8, 0.9)', border: '#e0b23a', sub: '#ffe9b0' }), transparent: true, depthTest: false, sizeAttenuation: false }));
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTexture(l.he, l.en, { plate: 'rgba(72, 48, 8, 0.9)', border: '#e0b23a', sub: '#ffe9b0' }), transparent: true, depthTest: false, sizeAttenuation: false, fog: false }));
     sp.scale.set(0.125, 0.039, 1); sp.center.set(0.5, -0.6);
     sp.position.set(l.x, l.y + 0.8, l.z); sp.renderOrder = 21; sp.material.opacity = 0;
     group.add(sp);

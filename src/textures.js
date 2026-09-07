@@ -142,3 +142,19 @@ export function cloudSprite(size = 256, seed = 3) {
   g.putImageData(img, 0, 0);
   return finish(cv, { wrap: false, srgb: true });
 }
+
+/** Tiling cloud cover, one grey channel of soft fbm: the shadow map the terrain reads (see terrain.js cloudShadow). */
+export function cloudCover(size = 256) {
+  const n = noise2(23);
+  const [cv, g] = canvas(size, size);
+  const img = g.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const v = fbm(n, x * 4 / size, y * 4 / size, 4) * 255;
+      const i = (y * size + x) * 4;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  return finish(cv);
+}

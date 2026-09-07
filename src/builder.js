@@ -107,8 +107,8 @@ export const stdMat = (extra = {}) => {
   m.flatShading = true;
   return m;
 };
-/** unlit, for things that glow at night (window panes, lamps, LEDs) */
-export const glowMat = (extra = {}) => new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false, ...extra });
+/** unlit, for things that glow at night (window panes, lamps, LEDs); never fogged, so lit windows punch through the haze */
+export const glowMat = (extra = {}) => new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false, fog: false, ...extra });
 
 /** deterministic RNG */
 export function rng(seed = 1337) {

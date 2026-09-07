@@ -140,7 +140,7 @@ export function createCities(world, network, terrain, occupancy) {
   if (bigCities.length) {
     const tex = radialSprite(128, 0.0, 1, 2.5);
     for (const c of bigCities) {
-      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: C.streetLamp, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: true, sizeAttenuation: true }));
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: C.streetLamp, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: true, sizeAttenuation: true, fog: false }));
       const size = 6 + 8 * Math.sqrt(c.pop / 450000);
       sp.scale.set(size, size, 1);
       sp.position.set(c.x, terrain.heightAt(c.x, c.z) + 0.4, c.z);

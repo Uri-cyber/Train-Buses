@@ -106,7 +106,7 @@ export function createSky(scene) {
   }
   const starGeo = new THREE.BufferGeometry();
   starGeo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
-  const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false }));
+  const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false }));
   stars.frustumCulled = false;
   scene.add(stars);
 
@@ -127,9 +127,9 @@ export function createSky(scene) {
 
   // sun and moon glows as sprites, so they sit "in" the scene for bloom
   const glowTex = radialSprite(128, 0.05, 1, 2.2);
-  const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: C.sun, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: C.sun, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
   sunSprite.scale.set(70, 70, 1);
-  const moonSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: C.moon, transparent: true, depthWrite: false, opacity: 0.55 }));
+  const moonSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: C.moon, transparent: true, depthWrite: false, opacity: 0.55, fog: false }));
   moonSprite.scale.set(50, 50, 1);
   scene.add(sunSprite, moonSprite);
 
@@ -142,8 +142,11 @@ export function createSky(scene) {
 
   return {
     dome, stars, clouds,
-    /** @param hourLocal Israel wall-clock hour (0..24) */
-    update(hourLocal, dt = 0, cameraPos = null) {
+    /**
+     * @param hourLocal Israel wall-clock hour (0..24)
+     * @param dist      camera distance to what it looks at (km): the haze scales with the shot
+     */
+    update(hourLocal, dt = 0, cameraPos = null, dist = 400) {
       const date = dateAtIsraelHour(hourLocal);
       const { elevation, azimuth } = solarPosition(date);
       // world: +x east, -z north. azimuth clockwise from north.
@@ -159,7 +162,14 @@ export function createSky(scene) {
       u.ground.value.setHex(mixHex(0x06131f, 0x0a2e48, day));
       u.sunColor.value.setHex(mixHex(0xff8a3c, C.sun, clamp01(el * 2.5)));
       stars.material.opacity = clamp01((-el - 0.03) * 8) * 0.9;
-      scene.fog.color.copy(u.horizon.value);
+      // aerial perspective: the followed train stays crisp (near >= 1.6 x distance) and the hills
+      // behind it fade toward the horizon colour; from the country view the fog is effectively off.
+      // A low sun thickens the haze, and at dusk it warms toward the sun's side of the sky.
+      const haze = 1 - 0.35 * clamp01((0.35 - el) / 0.35) * day;
+      scene.fog.near = Math.max(8, dist * 1.6);
+      scene.fog.far = Math.max(60, (dist * 9 + 120) * haze);
+      _c1.setHex(mixHex(u.horizon.value.getHex(), 0xe8c4a0, dusk * 0.5));
+      scene.fog.color.copy(_c1);
       const anchor = cameraPos ?? new THREE.Vector3();
       sunSprite.position.copy(anchor).addScaledVector(sunDir, 1200);
       sunSprite.scale.setScalar(70 + 60 * dusk);          // a small crisp disc by day, a fatter low sun at dusk

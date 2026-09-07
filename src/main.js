@@ -4,7 +4,7 @@ import bundledNetwork from '../data/network.json';
 import stationsData from '../data/stations.json';
 import { buildNetwork } from './network-build.js';
 import { loadLiveNetwork } from './osm.js';
-import { createTerrain } from './terrain.js';
+import { createTerrain, CLOUD } from './terrain.js';
 import { createSea } from './sea.js';
 import { createSky, israelClock } from './sky.js';
 import { createLighting } from './lighting.js';
@@ -219,7 +219,7 @@ function frame() {
   if (!skyFast) skyClock = state.hour;            // stay continuous with the real or manual hour
   const skyHour = skyClock;
   app.skyHour = skyHour;
-  const skyState = sky.update(skyHour, dt, cam.camera.position);
+  const skyState = sky.update(skyHour, dt, cam.camera.position, cam.distance());
   built.trains.update(dt, state.speed, 1 - skyState.day, state.lights, cam.controls.target, tour.trainId, cam.distance(), { T, ymd: today.ymd, weekday: today.weekday });
   traffic.update(dt, state.traffic, 1 - skyState.day, state.lights);
   tour.update(dt);                 // after the trains moved, before the camera settles
@@ -234,6 +234,9 @@ function frame() {
     post.setFocus(focusY, cam.flying() ? 0.35 : 0.14);
   } else { focusY = 0.52; post.setFocus(0.52, 0.16); }
   lights.update(skyState, cam.controls.target, dist);
+  // cloud shadows drift with the sprite clouds; none at night, none on 'low'
+  CLOUD.time.value = clock.elapsedTime;
+  CLOUD.amt.value = post.quality === 'low' ? 0 : 0.22 * skyState.day;
   sea.update(clock.elapsedTime);
   built.stations.update(cam.camera, dt, 1 - skyState.day, state.lights);
   built.cities.update(1 - skyState.day, state.lights, clock.elapsedTime);
