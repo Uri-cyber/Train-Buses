@@ -45,8 +45,12 @@ in another window. Each accepts a page URL as its first argument.
 
 Open the page and click once (browsers will not play sound before a click).
 The page goes full screen, the music starts, and the tour begins: the camera
-flies to a train, rides beside it for half a minute, then glides to the next
-one. That is all there is to do. `M` mutes the music, `Esc` leaves full
+flies to a train, settles into one of four framings (a rear ride, a high
+reveal, a low ride, a wide landscape), holds still long enough to read the
+name plate, drifts around it for half a minute, then glides to the next one.
+Meanwhile the day runs: the sun crosses the sky, cloud shadows drift over the
+land, sunset warms the west, city windows come on one by one, and a short
+starlit night follows before dawn. That is all there is to do. `M` mutes the music, `Esc` leaves full
 screen, and `?music=off` in the address opens without sound.
 
 Touch the mouse and the camera is yours; after 45 quiet seconds the tour
