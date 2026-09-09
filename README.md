@@ -88,13 +88,14 @@ route is computed through them, and the train is placed by the clock: at
 speed. Trips sharing a calling pattern share a route, so a thousand trips a
 day cost little.
 
-- By default the page runs on Israel's clock: at 08:14 you see the trains that
-  are between stations at 08:14. Real time means real speed, and on a map of a
-  whole country a train covers its own length in a minute, so from far out they
-  crawl; the tour camera rides close enough to see them move. `?speed=8` runs
-  the timetable eight times faster if you would rather watch a moving picture
-  than the current moment, and `?sky=fast` does the same for the sun and the
-  light.
+- By default the page runs on Israel's clock, to the millisecond: at 08:14 you
+  see the trains that are between stations at 08:14, rolling, not stepping once
+  a second. Real speed on a map of a whole country is slow, so the tour has a
+  trackside shot that frames the locomotive alone from three kilometres away,
+  where the sleepers and the fields stream past and a train doing 100 km/h
+  looks like one. `?speed=8` runs the timetable eight times faster if you would
+  rather watch a moving picture than the current moment, and `?sky=fast` does
+  the same for the sun and the light.
 - Shabbat and the small hours are quiet, so when fewer than three trains are
   running the page replays a weekday morning and the status line says so.
 - No feed, no trains? `?trains=toy` brings back the made-up service. The

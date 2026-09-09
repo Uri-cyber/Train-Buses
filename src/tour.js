@@ -23,6 +23,10 @@ const SHOTS = {
   reveal:  { r: 11,  up: 6,   orbit: 0.06, a0: Math.PI + 0.5, breathe: 1.0, lead: 0.1,  fov: 40, hold: 30, fit: 1.7 },
   lowride: { r: 5.5, up: 1.6, orbit: 0.08, a0: Math.PI + 0.7, breathe: 1.2, lead: 0.15, fov: 42, hold: 28, fit: 1.4 },
   wide:    { r: 18,  up: 9,   orbit: 0.04, a0: Math.PI + 1.2, breathe: 1.5, lead: 0,    fov: 36, hold: 34, fit: 2.35 },
+  // At Israel's real speed a train covers a fraction of its own length in a minute, so a
+  // shot that frames all nine kilometres of it reads as a still picture. This one frames
+  // the locomotive alone and sits close, where the ground streaks past and the train moves.
+  front:   { r: 3.2, up: 0.45, orbit: 0.05, a0: Math.PI * 0.5, breathe: 0.4, lead: 0.02, fov: 46, hold: 26, fit: 1.15, frame: 2.2, floor: 0.35 },
 };
 const LANDMARK_KM = 12;   // a landmark this close to the train favours the wide shot
 const MOVING = 0.004;     // km/s: below this a train counts as standing (real trains do 0.02 to 0.045)
@@ -39,7 +43,10 @@ export function createTour({ cam, getTrains, getLandmarks, terrain, state, hint 
 
   const chasePoint = (t) => {
     const T = t.head, len = t.total;
-    const mx = T.x - T.tx * len * 0.5, mz = T.z - T.tz * len * 0.5;       // middle of the train
+    // most shots frame the whole train; a `frame` shot deliberately frames only that many
+    // kilometres back from the nose, so the camera can come close enough to see it travel
+    const framed = shot.frame ? Math.min(len, shot.frame) : len;
+    const mx = T.x - T.tx * framed * 0.5, mz = T.z - T.tz * framed * 0.5;   // middle of what is framed
     const my = Math.max(T.y, terrain.heightAt(mx, mz)) + 0.6;
     // circle the train: start at the shot's angle, drift round, breathe in and out
     const heading = Math.atan2(T.tx, T.tz);
@@ -48,13 +55,13 @@ export function createTour({ cam, getTrains, getLandmarks, terrain, state, hint 
     // view that limits, from behind it is the near end running out of the bottom
     const c = cam.camera;
     const hfov = 2 * Math.atan(Math.tan(c.fov * Math.PI / 360) * c.aspect);
-    const rMin = Math.min(26, Math.max(((len * 0.5 + 0.8) / Math.tan(hfov / 2)) * 0.9, len * shot.fit));
+    const rMin = Math.min(26, Math.max(((framed * 0.5 + 0.8) / Math.tan(hfov / 2)) * 0.9, framed * shot.fit));
     const r = Math.max(shot.r + Math.sin(phase * 0.37) * shot.breathe, rMin);
     // look a little ahead of the train so there is room in front of it
-    _target.set(mx + T.tx * len * shot.lead, my + shot.up * 0.25, mz + T.tz * len * shot.lead);
+    _target.set(mx + T.tx * framed * shot.lead, my + shot.up * 0.25, mz + T.tz * framed * shot.lead);
     _pos.set(mx + Math.sin(a) * r, my + shot.up + Math.sin(phase * 0.23) * 0.3 * shot.breathe, mz + Math.cos(a) * r);
-    // the terrain floor: above camera.js's own clamp (+1.0) so it never pops
-    _pos.y = Math.max(_pos.y, terrain.heightAt(_pos.x, _pos.z) + 1.2);
+    // the terrain floor: a little above camera.js's own clamp so the camera never pops
+    _pos.y = Math.max(_pos.y, terrain.heightAt(_pos.x, _pos.z) + (shot.floor ?? 1.2));
     return { pos: _pos, target: _target };
   };
 
@@ -80,7 +87,9 @@ export function createTour({ cam, getTrains, getLandmarks, terrain, state, hint 
     const names = Object.keys(SHOTS).filter((n) => n !== shotName);
     const lm = getLandmarks ? getLandmarks() : null;
     const nearLandmark = !!lm && lm.some((l) => Math.hypot(l.x - t.head.x, l.z - t.head.z) < LANDMARK_KM);
-    const weights = names.map((n) => (n === 'wide' && nearLandmark ? 3 : 1));
+    // the close front shot is where real speed reads, so it is favoured on a train that is
+    // actually rolling and never used on one standing at a platform
+    const weights = names.map((n) => (n === 'wide' && nearLandmark ? 3 : n === 'front' ? (t.v > MOVING * 3 ? 3 : 0) : 1));
     let pick = Math.random() * weights.reduce((a, b) => a + b, 0);
     for (let i = 0; i < names.length; i++) { pick -= weights[i]; if (pick < 0) return names[i]; }
     return names[names.length - 1];
@@ -92,6 +101,7 @@ export function createTour({ cam, getTrains, getLandmarks, terrain, state, hint 
     followId = t.id;
     visited.push(t.id); if (visited.length > 5) visited.shift();
     shotName = pickShot(t); shot = SHOTS[shotName];
+    cam.setFloor((shot.floor ?? 1.2) - 0.1);
     phase = 0; settleT = 0; settled = false; dir = Math.random() < 0.5 ? 1 : -1;
     const dist = cam.camera.position.distanceTo(chasePoint(t).pos);
     mode = 'flight'; legs++;
@@ -101,7 +111,7 @@ export function createTour({ cam, getTrains, getLandmarks, terrain, state, hint 
 
   const takeOver = () => {
     lastInput = performance.now();
-    if (mode !== 'user') { mode = 'user'; cam.cancelFlight(); showHint(false); }
+    if (mode !== 'user') { mode = 'user'; cam.cancelFlight(); cam.setFloor(1.0); showHint(false); }
   };
   const el = cam.controls.domElement;
   el.addEventListener('pointerdown', takeOver);                       // bubble phase: desk clicks never get here
@@ -119,7 +129,7 @@ export function createTour({ cam, getTrains, getLandmarks, terrain, state, hint 
     /** the TOUR button */
     set(on) {
       state.tour = !!on;
-      if (on) startLeg(); else { mode = 'user'; cam.cancelFlight(); showHint(false); }
+      if (on) startLeg(); else { mode = 'user'; cam.cancelFlight(); cam.setFloor(1.0); showHint(false); }
     },
     /** open the page on the first leg: from high above the country down to a train */
     begin() {

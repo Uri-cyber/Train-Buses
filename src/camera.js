@@ -4,6 +4,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 /** Home view: the busy centre of the country, north up, looking from the south-west. */
 export const HOME = { target: new THREE.Vector3(-14, 0.4, 18), offset: new THREE.Vector3(-60, 250, 300) };
 
+// how close to the ground the camera may come, in km
+let floor = 1.0;
+
 export function createCamera(renderer, terrain) {
   const camera = new THREE.PerspectiveCamera(46, innerWidth / innerHeight, 0.5, 3000);
   camera.layers.enable(2);                          // the outline layer (post.js OUTLINE_LAYER)
@@ -28,6 +31,8 @@ export function createCamera(renderer, terrain) {
     flyTo(target, offset, dur = 2.2) {
       fly = { from: camera.position.clone(), to: target.clone().add(offset), targetFrom: controls.target.clone(), targetTo: target.clone(), t: 0, dur };
     },
+    /** how close to the ground the camera may come (km); the tour lowers it for low shots */
+    setFloor(v) { floor = Math.max(0.15, v); },
     /** look at a ground point from a given distance, keeping the current tilt/heading */
     focus(x, z, dist = 18) {
       const y = terrain.heightAt(x, z);
@@ -77,8 +82,9 @@ export function createCamera(renderer, terrain) {
         camera.fov += (fovTarget - camera.fov) * Math.min(1, dt * 3);
         camera.updateProjectionMatrix();
       }
-      // never under the hills
-      const eye = terrain.heightAt(camera.position.x, camera.position.z) + 1.0;
+      // never under the hills. A trackside shot wants to sit almost at rail level, so the
+      // tour lowers this floor while it is riding and puts back its own, shot by shot.
+      const eye = terrain.heightAt(camera.position.x, camera.position.z) + floor;
       if (camera.position.y < eye) camera.position.y = eye;
       // keep the orbit centre on the ground, never under it
       const ground = terrain.heightAt(controls.target.x, controls.target.z);

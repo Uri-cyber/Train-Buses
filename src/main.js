@@ -6,7 +6,7 @@ import { buildNetwork } from './network-build.js';
 import { loadLiveNetwork } from './osm.js';
 import { createTerrain, CLOUD } from './terrain.js';
 import { createSea } from './sea.js';
-import { createSky, israelClock } from './sky.js';
+import { createSky, israelClock, israelSeconds } from './sky.js';
 import { createLighting } from './lighting.js';
 import { createPost } from './post.js';
 import { createCamera } from './camera.js';
@@ -208,11 +208,13 @@ const app = {
 function frame() {
   renderer.info.reset();
   const dt = Math.min(clock.getDelta(), 0.1);
-  if (state.autoSun) state.hour = israelClock().hour;
+  if (state.autoSun) state.hour = israelSeconds() / 3600;    // continuous, so the sun and the trains glide
   const today = israelDate();
   // the timetable runs on Israel's clock; with ?speed it runs ahead of it, wrapping at midnight
   if (TIME_SCALE > 1) ttClock = ((ttClock ?? state.hour * 3600) + dt * TIME_SCALE) % 86400;
-  const T = TIME_SCALE > 1 ? ttClock : state.hour * 3600;
+  // at real speed the timetable reads Israel's clock straight, to the millisecond: a clock
+  // that ticks in whole seconds makes the trains hop once a second instead of rolling
+  const T = TIME_SCALE > 1 ? ttClock : (state.autoSun ? israelSeconds() : state.hour * 3600);
   // the sky's own clock: fast by day, faster by night; a manual hour or ?sky=real wins
   if (skyClock === null) skyClock = state.hour;
   skyClock = (skyClock + dt * TIME_SCALE * (isSkyNight(skyClock) ? NIGHT_BOOST : 1) / 3600) % 24;

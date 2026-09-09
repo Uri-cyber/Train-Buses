@@ -27,6 +27,8 @@ export function solarPosition(date, latDeg = 31.8, lonDeg = 35.0) {
 }
 
 /** Israel's wall clock right now: decimal hour and the UTC offset in hours. */
+let _offAt = -1e9, _off = 0;                    // the Israel UTC offset, refreshed once a second (Intl is slow per frame)
+
 export function israelClock(now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Jerusalem', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false,
@@ -39,8 +41,19 @@ export function israelClock(now = new Date()) {
   return { hour, offset: Math.round(offset * 4) / 4 };
 }
 
+/**
+ * Seconds after midnight in Israel, continuous: israelClock resolves to whole
+ * seconds, and a timetable driven by that moves in one-second hops instead of
+ * gliding. This keeps the sub-second part, using the cached offset so there is
+ * no Intl call per frame.
+ */
+export function israelSeconds(now = new Date()) {
+  const ms = now.getTime();
+  if (ms - _offAt > 1000) { _off = israelClock(now).offset; _offAt = ms; }
+  return ((((ms / 1000) + _off * 3600) % 86400) + 86400) % 86400;
+}
+
 /** A UTC Date for today at the given Israel wall-clock hour. */
-let _offAt = -1e9, _off = 0;                    // the Israel UTC offset, refreshed once a second (Intl is slow per frame)
 export function dateAtIsraelHour(hourLocal, now = new Date()) {
   const ms = now.getTime();
   if (ms - _offAt > 1000) { _off = israelClock(now).offset; _offAt = ms; }

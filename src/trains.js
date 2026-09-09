@@ -432,7 +432,7 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
     t.freeSlots.push(t.slot); t.slot = -1; t.cars = null; t.active = false; t.v = 0;
     if (t.plate) t.plate.visible = false;
   };
-  let replay = false, activeNow = 0, dayKey = null, activatedThisFrame = false;
+  let replay = false, activeNow = 0, dayKey = null, activatedThisFrame = false, lastT = null;
   const runScheduled = (dt, clock) => {
     // the day's trips are chosen once per Israeli calendar day
     if (clock.ymd !== dayKey) { dayKey = clock.ymd; sched.selectDay(clock.ymd, clock.weekday); }
@@ -441,6 +441,8 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
     const live = sched.countActive(T);
     replay = live < 3 && sched.hasReplay;
     if (replay) T = sched.replayTime(T);
+    const dT = lastT === null ? 0 : Math.abs(T - lastT) > 600 ? 0 : T - lastT;   // ignore the wrap at midnight
+    lastT = T;
     activeNow = 0;
     for (const t of trains) {
       const run = t.sched;
@@ -455,8 +457,9 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
         ? Math.max(run.liveSeg, Math.min(run.liveSeg + 1, prog.i)) : prog.i;
       const d0 = run.stopD[seg], d1 = run.stopD[Math.min(seg + 1, run.stopD.length - 1)];
       const target = Math.max(t.total * 0.55, Math.min(t.route.length - t.total * 0.55, d0 + (d1 - d0) * prog.f));
-      // a jump (time scrubbed, just appeared) is not a speed; otherwise smooth the frame-to-frame estimate
-      const raw = dt > 0 ? Math.abs(target - t.d) / dt : 0;
+      // speed comes from how far the timetable clock moved, not from how long the frame took:
+      // a slow frame or a throttled tab would otherwise read as a train doing 500 km/h
+      const raw = dT > 0 ? Math.abs(target - t.d) / dT : 0;
       t.v = raw > 3 ? 0 : t.v * 0.8 + raw * 0.2;
       t.phase = prog.phase; t.toDep = prog.toDep;
       t.d = target;
