@@ -235,12 +235,15 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
   };
   const yawAt = (lk, d, dir) => { const p = lk.at(d); return Math.atan2(p.tx * dir, p.tz * dir); };
   // every car is placed about its own centre (position = the lane sample, which the
-  // rails check reads); pitch follows the grade, roll leans into the bend plus a
-  // whisper of sway on the move
+  // rails check reads); pitch follows the grade and roll leans into the bend. Both are
+  // eased over about a third of a second: the heightfield has flat facets and the route
+  // is a polyline, so the raw values step from frame to frame and a train built out of
+  // them shivers. A real lean lasts seconds and comes through the easing untouched.
+  let frameDt = 0;
   const place = (t) => {
+    const k = frameDt > 0 ? 1 - Math.exp(-frameDt * 3) : 1;
     const lk = t.route.lookup;
     let back = 0;                                   // distance from the head, along the train
-    const moving = t.v > MOVING_V;
     let carIndex = 0;
     for (const car of t.cars) {
       const dc = t.d - t.dir * (back + car.len / 2);
@@ -250,12 +253,16 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
       const y = t.route.heightAt(dc) + TRACK.railH;
       // nose up on a climb: local +z points at sample b, a positive X rotation drops the nose
       const ha = t.route.heightAt(dc - t.dir * car.len * 0.34), hb = t.route.heightAt(dc + t.dir * car.len * 0.34);
-      const pitch = -Math.atan2(hb - ha, car.len * 0.68);
-      // lean into the bend: yaw change over the car, scaled by speed (a left turn is a positive yaw change; +y leans to -x under a positive Z roll, so negate)
+      const pitchRaw = -Math.atan2(hb - ha, car.len * 0.68);
+      // lean into the bend: yaw change over the car, scaled by speed (a left turn is a positive
+      // yaw change; +y leans to -x under a positive Z roll, so negate). Kept to about two
+      // degrees: any more and a train reads as shivering rather than leaning.
       const turn = wrapPi(yawAt(lk, dc + t.dir * car.len * 0.6, t.dir) - yawAt(lk, dc - t.dir * car.len * 0.6, t.dir));
-      let roll = clamp(-turn * t.v * 2.5, -0.09, 0.09);
-      if (moving) roll += 0.010 * Math.sin(elapsed * 2.1 + carIndex * 1.9 + (t.slot | 0) * 0.7);
-      Q.setFromEuler(_e.set(pitch, rot, roll, 'YXZ'));
+      const rollRaw = clamp(-turn * t.v * 1.1, -0.04, 0.04);
+      // a car that has just appeared, or was reused by another train, starts where it is
+      car.pitch = car.pitch === undefined || Math.abs(pitchRaw - car.pitch) > 0.08 ? pitchRaw : car.pitch + (pitchRaw - car.pitch) * k;
+      car.roll = car.roll === undefined || Math.abs(rollRaw - car.roll) > 0.08 ? rollRaw : car.roll + (rollRaw - car.roll) * k;
+      Q.setFromEuler(_e.set(car.pitch, rot, car.roll, 'YXZ'));
       M4.compose(V.set(x, y, z), Q, S.set(1, 1, 1));
       const ty = types[car.type];
       ty.solid.setMatrixAt(car.idx, M4);
@@ -422,6 +429,7 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
   const deactivate = (t) => {
     if (!t.active) return;
     for (const car of t.cars) {
+      car.pitch = undefined; car.roll = undefined;      // the next train to use this car starts level
       const ty = types[car.type];
       ty.solid.setMatrixAt(car.idx, ZERO);
       if (ty.glow) { ty.glow.setMatrixAt(car.idx, ZERO); ty.glow.instanceColor.setXYZ(car.idx, 1, 1, 1); ty.glow.instanceColor.needsUpdate = true; }
@@ -434,6 +442,7 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
   };
   let replay = false, activeNow = 0, dayKey = null, activatedThisFrame = false, lastT = null;
   const runScheduled = (dt, clock) => {
+    frameDt = dt;
     // the day's trips are chosen once per Israeli calendar day
     if (clock.ymd !== dayKey) { dayKey = clock.ymd; sched.selectDay(clock.ymd, clock.weekday); }
     // quiet hours (Shabbat, the small hours): replay a weekday morning so the screen is never empty
@@ -488,6 +497,7 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
      */
     update(dt, speedLever, night, lightsOn, focus = null, followedId = null, viewDist = 0, clock = null) {
       elapsed += dt;
+      frameDt = dt;
       activatedThisFrame = false;
       if (scheduled) runScheduled(dt, clock || { T: 12 * 3600, ymd: '20260101', weekday: 4 });
       else {
