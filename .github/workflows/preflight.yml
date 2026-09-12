@@ -1,0 +1,43 @@
+name: Pre-flight check of the live site
+
+# Loads https://uri-cyber.github.io/Train-Buses/ in a real browser from a machine
+# that can reach it, and reports whether a visitor would see a working page.
+on:
+  workflow_dispatch:
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: The site, the timetable and the live proxy
+        run: |
+          SITE=https://uri-cyber.github.io/Train-Buses/
+          echo "== the page"; curl -sS -o page.html -w 'HTTP %{http_code}  %{size_download} bytes  %{time_total}s\n' "$SITE"
+          echo "== the timetable"; curl -sS -o tt.json -w 'HTTP %{http_code}  %{size_download} bytes\n' "${SITE}timetable.json"
+          node -e "
+            const t=require('./tt.json');
+            const age=(Date.now()-t.fetched)/3600000;
+            console.log('trips', t.trips.length, '| stops', Object.keys(t.stops).length, '| services', Object.keys(t.services).length, '| fetched', age.toFixed(1), 'hours ago');
+            if (t.trips.length < 500) { console.log('::error::too few trips'); process.exit(1); }
+            if (age > 30) console.log('::warning::the timetable is more than 30 hours old');
+          "
+          echo "== the live proxy"; curl -sS -m 45 -o live.json -w 'HTTP %{http_code}  %{size_download} bytes  %{time_total}s\n' -H 'origin: https://uri-cyber.github.io' https://israel-by-rail-live.meiriuri.workers.dev/live
+          node -e "
+            const d=require('./live.json'); const t=Object.values(d.trains||{});
+            console.log('trains', t.length, '| reporting a position', t.filter(x=>x.delay!==null).length, '| late', t.filter(x=>x.delay>0).length, '| pairs', JSON.stringify(d.pairs));
+            if (t.length < 50) { console.log('::error::the live proxy returned almost nothing'); process.exit(1); }
+          "
+      - name: What a visitor actually sees
+        run: node scripts/visitor-check.mjs https://uri-cyber.github.io/Train-Buses/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: preflight-shots
+          path: shots/
+          retention-days: 5
