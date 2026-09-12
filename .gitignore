@@ -6,6 +6,7 @@ shots/
 *.log
 public/fixtures/
 public/timetable.json
+public/timetable-fixture.json
 gtfs.zip
 data/timetable.json
 public/live-fixture.json

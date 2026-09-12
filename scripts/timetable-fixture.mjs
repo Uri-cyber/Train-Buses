@@ -41,6 +41,6 @@ const timetable = {
 for (const dir of ['public', 'dist']) {
   if (dir === 'dist' && !existsSync('dist')) continue;
   mkdirSync(dir, { recursive: true });
-  writeFileSync(`${dir}/timetable.json`, JSON.stringify(timetable));
+  writeFileSync(`${dir}/timetable-fixture.json`, JSON.stringify(timetable));
 }
 console.log(`timetable fixture: ${trips.length} trips over ${net.routes.filter((r) => r.kind === 'passenger').length} routes`);

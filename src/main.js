@@ -298,7 +298,7 @@ const ttStatus = () => {
 /* live delays: poll the proxy, hand each digest to the trains */
 const live = LIVE ? createLive({ source: LIVE, every: 60, onData: (d) => { liveDigest = d; built.trains.applyLive(d); ttStatus(); } }) : null;
 if (live) live.start();
-loadTimetable('./timetable.json').then((tt) => {
+loadTimetable(params.get('tt') || './timetable.json').then((tt) => {
   if (tt && !TOY) { timetable = tt; swapTrains(); app.timetable = { loaded: true, trips: tt.trips.length, fetched: tt.fetched }; }
   else app.timetable = { loaded: false };
   ttStatus();

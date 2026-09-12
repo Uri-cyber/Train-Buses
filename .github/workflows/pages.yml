@@ -60,7 +60,7 @@ jobs:
       - name: Also produce the single-file build
         run: SINGLE=1 npm run build && cp dist-single/index.html dist/standalone.html
       - name: Remove the test fixture from the deployed site
-        run: rm -rf dist/fixtures dist/live-fixture.json
+        run: rm -rf dist/fixtures dist/live-fixture.json dist/timetable-fixture.json
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

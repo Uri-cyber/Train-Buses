@@ -7,7 +7,7 @@
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 
-const tt = JSON.parse(readFileSync('public/timetable.json', 'utf8'));
+const tt = JSON.parse(readFileSync('public/timetable-fixture.json', 'utf8'));
 const stations = {};
 for (const [id, s] of Object.entries(tt.stops)) stations[id.replace(/^S/, '')] = [s.lat, s.lon];
 const hhmm = (secs) => { const m = Math.round(secs / 60) % 1440; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };

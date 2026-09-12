@@ -24,6 +24,8 @@ jobs:
             const t=require('./tt.json');
             const age=(Date.now()-t.fetched)/3600000;
             console.log('trips', t.trips.length, '| stops', Object.keys(t.stops).length, '| services', Object.keys(t.services).length, '| fetched', age.toFixed(1), 'hours ago');
+            console.log('source:', t.source);
+            if (/fixture|synthetic/i.test(t.source || '')) { console.log('::error::the published timetable is a TEST FIXTURE, not the real one'); process.exit(1); }
             if (t.trips.length < 500) { console.log('::error::too few trips'); process.exit(1); }
             if (age > 30) console.log('::warning::the timetable is more than 30 hours old');
           "
