@@ -678,8 +678,12 @@ function prepareSchedule({ timetable, router, P, makeRoute }, rails, stationsByI
     const total = 4 * 2.3 * SCALE * ZS;              // four toy cars, near enough for placement
     runs.push({ id: trip.id, trip, route, stops: keep, stopD, total, service: trip.service, offset: 0, today: false, wk: false });
   }
-  // the busiest minute of a weekday decides the pool size
-  const weekdayRuns = runs.filter((r) => { const s = timetable.services[r.service]; return s && (s.days[0] || s.days[1] || s.days[2] || s.days[3]); });
+  // The busiest minute of a weekday decides the pool size. Some feeds (the Israeli one among
+  // them) carry no weekday flags at all: every service is spelled out date by date in
+  // calendar_dates. Falling back to every run keeps the pool and the replay working there,
+  // instead of a 12-slot pool and an empty screen in the small hours.
+  const flagged = runs.filter((r) => { const s = timetable.services[r.service]; return s && (s.days[0] || s.days[1] || s.days[2] || s.days[3]); });
+  const weekdayRuns = flagged.length ? flagged : runs;
   let peak = 0;
   for (let T = 0; T < 30 * 3600; T += 300) {
     let n = 0;
@@ -696,13 +700,17 @@ function prepareSchedule({ timetable, router, P, makeRoute }, rails, stationsByI
     return null;
   })();
   if (replayDay) for (const r of runs) { const svc = timetable.services[r.service]; r.wk = !!(svc && svc.days[replayDay.weekday]); }
+  // no weekday flags to replay: replay whatever today's calendar gave us
+  const replayToday = !replayDay;
   const sched = {
-    runs, slots, source: timetable.source, hasReplay: !!replayDay, unmatched, peak,
+    runs, slots, source: timetable.source, hasReplay: true, unmatched, peak,
     selectDay(ymd, weekday) {
       const list = tripsForDay({ trips: runs.map((r) => r.trip), services: timetable.services }, ymd, weekday);
       const byTrip = new Map();
       for (const { trip, offset } of list) if (!byTrip.has(trip.id) || offset === 0) byTrip.set(trip.id, offset);
-      for (const r of runs) { const off = byTrip.get(r.trip.id); r.today = off !== undefined; r.offset = off || 0; }
+      for (const r of runs) { const off = byTrip.get(r.trip.id); r.today = off !== undefined; r.offset = off || 0; if (replayToday) r.wk = r.today; }
+      // a date-driven feed with nothing at all for today: replay the whole timetable
+      if (replayToday && !runs.some((r) => r.today)) for (const r of runs) r.wk = true;
       if (sched.digest) sched.applyLive(sched.digest);        // a new day: match the live trains again
     },
     countActive(T) { let n = 0; for (const r of runs) if (r.today && tripProgress(r.stops, T - r.offset)) n++; return n; },
