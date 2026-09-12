@@ -10,6 +10,7 @@ import { chromium, devices } from 'playwright';
 import { mkdirSync, existsSync } from 'node:fs';
 
 const URL = process.argv[2] || 'http://127.0.0.1:4173/';
+const ISRAEL = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', weekday: 'long', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
 const OUT = 'shots';
 mkdirSync(OUT, { recursive: true });
 
@@ -41,7 +42,10 @@ async function visit(browser, name, opts, { touch = false } = {}) {
     overlay: document.getElementById('loading')?.style.display,
     canvas: { w: document.getElementById('view').width, h: document.getElementById('view').height },
   }));
-  await page.screenshot({ path: `${OUT}/visitor-${name}.png` });
+  // the canvas never stops moving, so a screenshot can time out on a software renderer:
+  // it is a keepsake, not part of the verdict
+  await page.screenshot({ path: `${OUT}/visitor-${name}.png`, timeout: 20000, animations: 'disabled' })
+    .catch(() => console.log('  (no screenshot: the renderer was too slow to hold still)'));
 
   console.log(`  booted in ${(booted / 1000).toFixed(1)} s, canvas ${s.canvas.w}x${s.canvas.h}`);
   console.log(`  timetable: ${JSON.stringify(s.tt)}`);
@@ -52,6 +56,8 @@ async function visit(browser, name, opts, { touch = false } = {}) {
   if (errors.length) fail(`${name}: ${errors.length} page errors, first: ${errors[0]}`);
   if (!s.tt.loaded) fail(`${name}: the real timetable did not load`);
   if (s.trains.active < 3) fail(`${name}: only ${s.trains.active} trains on screen`);
+  if (s.trains.replay) console.log('  note: the railway is quiet now, so the page is replaying a weekday morning');
+  if (s.live && s.live.state === 'ok' && s.live.positioned === 0) console.log('  note: no train is reporting a position (normal on Shabbat and at night)');
   if (s.moving < 1) fail(`${name}: no train is moving`);
   if (!s.tour.on) fail(`${name}: the tour is not running`);
   if (s.info.calls > 300) fail(`${name}: ${s.info.calls} draw calls`);
@@ -62,6 +68,7 @@ async function visit(browser, name, opts, { touch = false } = {}) {
 
 // the build machine keeps its Chromium outside the Playwright cache; CI uses Playwright's own
 const EXE = process.env.CHROME_PATH || ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome'].find((p) => existsSync(p));
+console.log(`Israel time: ${ISRAEL}`);
 const browser = await chromium.launch({ executablePath: EXE, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 await visit(browser, 'desktop', { viewport: { width: 1440, height: 900 } });
 await visit(browser, 'laptop', { viewport: { width: 1280, height: 720 } });
