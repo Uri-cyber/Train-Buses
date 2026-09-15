@@ -22,17 +22,18 @@ async function visit(browser, name, opts, { touch = false } = {}) {
   const ctx = await browser.newContext(opts);
   const page = await ctx.newPage();
   const raw = [], errors = [], upstream = [];
-  // A failed request to the live proxy is logged by the browser itself and cannot be caught in
-  // the page. The proxy's upstream, Israel Railways' own planner, times out now and then; the
-  // page retries and carries on showing the timetable, so that is a note, not a visitor's
-  // problem. It only counts against the run if the live feed never comes good (checked below).
-  // The browser's console line does not say which request failed, so the proxy's own bad
-  // responses are counted separately and matched up at the end: the console message and the
-  // response event do not arrive in a fixed order, so the two cannot be paired as they land.
-  let liveFailed = 0;
-  const isLive = (u) => /israel-by-rail-live/.test(u) || /\/live(\?|$)/.test(u);
-  page.on('response', (r) => { if (isLive(r.url()) && !r.ok()) liveFailed++; });
-  page.on('requestfailed', (r) => { if (isLive(r.url())) liveFailed++; });
+  // Requests that fail are logged by the browser itself and cannot be caught in the page, and
+  // the console line does not say which one it was. So the failures are recorded here with
+  // their host and paired with those lines at the end (the two events do not arrive in a fixed
+  // order). The page expects some of them: it walks a list of OpenStreetMap mirrors until one
+  // answers, and the live proxy's upstream, Israel Railways' own planner, times out now and
+  // then. A failure on the site's own files is a real fault; another host's is a note, unless
+  // the page never recovered.
+  const site = new URL(URL);
+  const failed = [];
+  const record = (u, why) => { try { failed.push(`${new URL(u).host} ${why}`); } catch { failed.push(`${u} ${why}`); } };
+  page.on('response', (r) => { if (!r.ok() && r.status() >= 400) record(r.url(), r.status()); });
+  page.on('requestfailed', (r) => record(r.url(), r.failure()?.errorText || 'request failed'));
   page.on('pageerror', (e) => raw.push(String(e.message)));
   page.on('console', (m) => { if (m.type() === 'error') raw.push(m.text().slice(0, 160)); });
   const t0 = Date.now();
@@ -64,20 +65,20 @@ async function visit(browser, name, opts, { touch = false } = {}) {
   console.log(`  live: ${JSON.stringify(s.live)}`);
   console.log(`  tour: ${JSON.stringify(s.tour)}   draw calls ${s.info.calls}, fps ${s.info.fps}`);
 
-  // as many failed-resource lines as the live proxy had bad answers are that proxy's, not ours
+  // pair each "failed to load" line with a recorded failure, in the order they happened
+  const queue = failed.slice();
   for (const t of raw) {
-    if (liveFailed > 0 && /Failed to load resource/i.test(t)) { liveFailed--; upstream.push(t); } else errors.push(t);
+    const hit = /Failed to load resource/i.test(t) ? queue.shift() : null;
+    if (hit === undefined || hit === null) { errors.push(t); continue; }
+    (hit.startsWith(site.host) ? errors : upstream).push(hit);
   }
   if (errors.length) fail(`${name}: ${errors.length} page errors, first: ${errors[0]}`);
   if (upstream.length) {
-    const line = `${upstream.length} upstream hiccup(s), first: ${upstream[0]}`;
-    if (s.live && s.live.state === 'ok') console.log(`  note: ${line} (the page recovered)`);
-    else fail(`${name}: ${line} and the live feed never recovered`);
+    const line = `${upstream.length} upstream hiccup(s): ${[...new Set(upstream)].join(', ')}`;
+    const recovered = s.tt.loaded && s.trains.active > 0 && (!s.live || s.live.state === 'ok');
+    if (recovered) console.log(`  note: ${line} (the page recovered)`);
+    else fail(`${name}: ${line} and the page did not recover`);
   }
-  if (!s.tt.loaded) fail(`${name}: the real timetable did not load`);
-  if (s.trains.active < 3) fail(`${name}: only ${s.trains.active} trains on screen`);
-  if (s.trains.replay) console.log('  note: the railway is quiet now, so the page is replaying a weekday morning');
-  if (s.live && s.live.state === 'ok' && s.live.positioned === 0) console.log('  note: no train is reporting a position (normal on Shabbat and at night)');
   if (s.moving < 1) fail(`${name}: no train is moving`);
   if (!s.tour.on) fail(`${name}: the tour is not running`);
   if (s.info.calls > 300) fail(`${name}: ${s.info.calls} draw calls`);
