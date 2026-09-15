@@ -77,12 +77,25 @@
   #credit {
     position: fixed; left: 12px; bottom: 8px; z-index: 5; direction: ltr;
     font: 11px system-ui, "Segoe UI", Arial, sans-serif; color: #9db8d8; opacity: 0.8;
-    pointer-events: none;
+    pointer-events: none; max-width: min(560px, calc(100vw - 24px));
+  }
+  /* the disclaimer has to be readable, so it keeps its own contrast and stays clickable */
+  #credit .he { direction: rtl; text-align: right; opacity: 0.95; margin-bottom: 3px; }
+  #credit .en-note { opacity: 0.9; margin-bottom: 3px; }
+  #credit a { color: #cfe3ff; pointer-events: auto; }
+  @media (max-width: 700px) { #credit { font-size: 10px; bottom: 6px; } }
+  /* read by a screen reader, never shown */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
   }
 </style>
 </head>
 <body>
-  <canvas id="view"></canvas>
+  <canvas id="view" role="img" tabindex="0"
+    aria-label="מפה תלת ממדית של רשת הרכבות בישראל, ובה רכבות הנעות לפי לוח הזמנים האמיתי. A 3D map of the Israeli railway network with trains moving to the real timetable."
+    aria-describedby="view-text"></canvas>
+  <p id="view-text" class="sr-only">מפה תלת ממדית של רשת הרכבות בישראל. לפרטים רשמיים ונגישים ראו אתר רכבת ישראל.</p>
   <div id="hud">
     <b>ישראל ברכבת</b><br />
     גררו לסובב, גלגלת להתקרב, לחיצה על תחנה מציגה את שמה.<br />
@@ -96,7 +109,11 @@
   <div id="status"></div>
   <div id="timetable"></div>
   <div id="tour" hidden><b>סיור אוטומטי</b> · הזיזו את העכבר כדי לקחת את המצלמה<div class="en">Auto tour · move the mouse to take the camera</div></div>
-  <div id="credit">Map: Natural Earth (public domain). Rails and stations: OpenStreetMap contributors (ODbL) when reachable.</div>
+  <div id="credit">
+    <div class="he">אתר עצמאי ולא רשמי, ללא קשר לרכבת ישראל או למשרד התחבורה. המידע להמחשה בלבד ועשוי להיות שגוי או לא מעודכן. אין להסתמך עליו לתכנון נסיעה. לוח זמנים ומצב רכבות: אתר ואפליקציית רכבת ישראל. <a href="./accessibility.html">הצהרת נגישות</a></div>
+    <div class="en-note">Independent, unofficial project. Not affiliated with Israel Railways or the Ministry of Transport. For illustration only; data may be wrong or out of date. Do not rely on it to plan travel.</div>
+    Map: Natural Earth (public domain). Rails and stations: OpenStreetMap contributors (ODbL) when reachable.
+  </div>
   <div id="sound" title="מוזיקה (M)">♪</div>
   <div id="loading"><div>מניחים את המסילות…<small>laying the track</small></div></div>
   <script type="module" src="/src/main.js"></script>

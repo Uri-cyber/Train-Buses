@@ -26,24 +26,24 @@ const ZS = 0.65;                   // ...and squashed along the track so they st
 
 const CATALOGUE = {
   irLoco: { len: 2.2, build(b, g) {
-    b.box(0, 0.33, 0, W, 0.40, 2.2, C.irBlue, { jitter: 0.02 });
-    b.box(0, 0.24, 0, W + 0.01, 0.07, 2.21, C.irRed);                       // waist stripe
+    b.box(0, 0.33, 0, W, 0.40, 2.2, C.trainBlue, { jitter: 0.02 });
+    b.box(0, 0.24, 0, W + 0.01, 0.07, 2.21, C.trainRed);                       // waist stripe
     for (const s of [-1, 1]) {
-      b.box(0, 0.36, s * 0.98, W + 0.01, 0.34, 0.26, C.irWhite);           // cab ends
+      b.box(0, 0.36, s * 0.98, W + 0.01, 0.34, 0.26, C.trainWhite);           // cab ends
       g.box(0, 0.42, s * 1.108, 0.46, 0.14, 0.01, 0x1a2430);               // windscreen
       g.box(0.18, 0.20, s * 1.108, 0.14, 0.10, 0.01, s > 0 ? 0xfff3d0 : 0xff2a1a);   // lamps
       g.box(-0.18, 0.20, s * 1.108, 0.14, 0.10, 0.01, s > 0 ? 0xfff3d0 : 0xff2a1a);
       b.box(0, 0.12, s * 0.72, 0.52, 0.12, 0.62, 0x2a2e33);                // bogies
     }
-    b.box(0, 0.55, 0, W - 0.08, 0.05, 1.9, C.irGrey);                       // roof
+    b.box(0, 0.55, 0, W - 0.08, 0.05, 1.9, C.trainGrey);                       // roof
     b.box(0, 0.60, -0.3, 0.3, 0.06, 0.5, 0x3b4148);                         // roof gear
     b.box(0, 0.10, 0, 0.52, 0.06, 2.1, 0x2a2e33);                           // frame
   } },
   irCoach: { len: 2.3, build(b, g) {
-    b.box(0, 0.22, 0, W, 0.22, 2.3, C.irBlue, { jitter: 0.02 });
-    b.box(0, 0.335, 0, W + 0.01, 0.03, 2.31, C.irRed);
-    b.box(0, 0.50, 0, W, 0.30, 2.3, C.irWhite, { jitter: 0.02 });
-    b.box(0, 0.665, 0, W - 0.06, 0.03, 2.2, C.irGrey);
+    b.box(0, 0.22, 0, W, 0.22, 2.3, C.trainBlue, { jitter: 0.02 });
+    b.box(0, 0.335, 0, W + 0.01, 0.03, 2.31, C.trainRed);
+    b.box(0, 0.50, 0, W, 0.30, 2.3, C.trainWhite, { jitter: 0.02 });
+    b.box(0, 0.665, 0, W - 0.06, 0.03, 2.2, C.trainGrey);
     for (const s of [-1, 1]) {
       for (let i = 0; i < 7; i++) {
         const z = -0.93 + i * 0.31;
@@ -64,7 +64,7 @@ const CATALOGUE = {
     b.box(0, 0.72, -0.55, W + 0.04, 0.05, 0.6, C.steamBlack);               // cab roof
     g.box(0, 0.50, -0.27, 0.36, 0.14, 0.01, 0x2b2410);                       // cab window
     g.box(0, 0.50, 0.90, 0.16, 0.12, 0.01, 0xfff0c0);                        // headlamp
-    b.box(0, 0.20, 0.88, W, 0.10, 0.04, C.irRed);                            // buffer beam
+    b.box(0, 0.20, 0.88, W, 0.10, 0.04, C.trainRed);                            // buffer beam
     for (const s of [-1, 1]) for (const z of [-0.15, 0.2, 0.55]) b.cyl(s * 0.27, 0.13, z, 0.13, 0.05, 0xb3402e, 12, { rotZ: Math.PI / 2 });
     b.box(0, 0.08, 0, 0.3, 0.05, 1.5, 0x1d1f22);
   } },

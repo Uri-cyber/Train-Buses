@@ -9,7 +9,7 @@ import { labelTexture } from './labels.js';
 
 /**
  * Stations: platforms either side of the line, a white barrel canopy on blue
- * posts (the Israel Railways look), a building sized by importance, and a
+ * posts, a building sized by importance, and a
  * bilingual name plate that floats above, readable when you are close enough.
  */
 const MAJOR = new Set(['tel-aviv-savidor', 'tel-aviv-hashalom', 'tel-aviv-hahagana', 'haifa-center', 'haifa-hof-hacarmel',
@@ -59,13 +59,13 @@ export function createStations(network, rails, terrain) {
           const a0 = Math.PI * (k / 7), a1 = Math.PI * ((k + 1) / 7);
           const am = (a0 + a1) / 2;
           const len = r * (a1 - a0) * 1.05;
-          b.box(cx + Math.cos(am) * r, y0 + Math.sin(am) * r, 0, len, 0.04, L * 0.8, C.irWhite, { rotZ: am - Math.PI / 2, jitter: 0.02 });
+          b.box(cx + Math.cos(am) * r, y0 + Math.sin(am) * r, 0, len, 0.04, L * 0.8, C.trainWhite, { rotZ: am - Math.PI / 2, jitter: 0.02 });
         }
-        for (const zz of [-L * 0.3, 0, L * 0.3]) b.up(cx, 0.1, zz, 0.1, y0 - 0.1 + 0.03, 0.1, C.irBlue);
+        for (const zz of [-L * 0.3, 0, L * 0.3]) b.up(cx, 0.1, zz, 0.1, y0 - 0.1 + 0.03, 0.1, C.trainBlue);
       } else {
         // a small shelter on the platform
-        b.up(cx, 0.1, 0, 0.4, 0.26, 0.4, C.irBlue);
-        b.up(cx, 0.36, 0, 0.48, 0.04, 0.48, C.irWhite);
+        b.up(cx, 0.1, 0, 0.4, 0.26, 0.4, C.trainBlue);
+        b.up(cx, 0.36, 0, 0.48, 0.04, 0.48, C.trainWhite);
       }
     }
     // station building set back on the platform's outer side
@@ -73,14 +73,14 @@ export function createStations(network, rails, terrain) {
     const bx = -(off + PW / 2 + bd / 2 + 0.1);
     b.up(bx, 0.0, 0, bd, bh, bw, C.stucco, { rotY: 0, jitter: 0.03 });
     b.up(bx, bh, 0, bd + 0.1, 0.08, bw + 0.1, C.roofFlat);
-    b.up(bx, bh + 0.08, -bw * 0.25, bd * 0.6, 0.25, bw * 0.3, C.irBlue);     // roof sign block
+    b.up(bx, bh + 0.08, -bw * 0.25, bd * 0.6, 0.25, bw * 0.3, C.trainBlue);     // roof sign block
     // glass band on the trackside face
     const gb = new Builder();
     gb.box(bx + bd / 2 + 0.005, bh * 0.55, 0, 0.01, bh * 0.45, bw * 0.9, C.windowLit, { jitter: 0.05 });
     // name post
-    b.up(off + 0.6, 0.0, L * 0.35, 0.07, 1.0, 0.07, C.irBlue);
-    b.up(off + 0.6, 1.0, L * 0.35, 0.45, 0.2, 0.07, C.irWhite);
-    b.up(off + 0.6, 1.06, L * 0.35, 0.45, 0.03, 0.08, C.irRed);
+    b.up(off + 0.6, 0.0, L * 0.35, 0.07, 1.0, 0.07, C.trainBlue);
+    b.up(off + 0.6, 1.0, L * 0.35, 0.45, 0.2, 0.07, C.trainWhite);
+    b.up(off + 0.6, 1.06, L * 0.35, 0.45, 0.03, 0.08, C.trainRed);
 
     const place = (geo) => { geo.rotateY(rot); geo.translate(s.x, y, s.z); return geo; };
     const geo = b.build(); if (geo) pieces.push(place(geo));

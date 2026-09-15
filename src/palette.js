@@ -22,8 +22,9 @@ export const C = {
   solar: 0x22344d, heater: 0xf2f0ea, glass: 0x7fb6d6, concrete: 0xc9c3b6, asphalt: 0x575c62,
   roadLine: 0xf1eadb, ballast: 0xbdb6a8, rail: 0x9aa0a6, sleeper: 0xd2cdc2, platform: 0xd9d2c3,
 
-  // Israel Railways and street livery
-  irBlue: 0x1d4f9c, irRed: 0xd0342c, irWhite: 0xf3f3f1, irGrey: 0x8f959c,
+  // An invented toy livery. Deliberately not any operator's brand colours: this is an
+  // independent, unofficial model, and it should not look like it speaks for anyone.
+  trainBlue: 0x2f74c0, trainRed: 0xe2603f, trainWhite: 0xf3f3f1, trainGrey: 0x8f959c,
   steamBlack: 0x23272b, steamGreen: 0x2f5f45, brass: 0xd4a83a, woodCoach: 0x8a5a34,
   potash: 0x9aa1a3, container: [0x2f6fae, 0xc94a3b, 0xe0b23a, 0x3f8f5f, 0xe8e6df],
   eggedGreen: 0x1f8a4c, danBlue: 0x2a63b8, carWhite: 0xf2f2ee, carGrey: 0x9ea3a8, taxi: 0xf5f3ee,
