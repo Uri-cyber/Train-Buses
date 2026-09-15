@@ -1,0 +1,46 @@
+name: Deploy the live proxy
+
+# The Cloudflare Worker that carries Israel Railways' live delays. It used to be pasted into
+# the dashboard by hand, which meant a code change could sit unpublished without anyone
+# noticing. Now a push that touches the worker publishes it, and the job proves the deployed
+# copy answers the site and refuses everyone else.
+on:
+  push:
+    branches: [main, master, claude/voxel-model-railway-qsar92]
+    paths: ['worker/**', '.github/workflows/worker.yml']
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Publish the worker
+        run: npx --yes wrangler@4 deploy --config worker/wrangler.toml
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: What the deployed worker now answers
+        run: |
+          URL=$(grep -oE "const LIVE_URL = '[^']+'" src/main.js | cut -d"'" -f2)
+          sleep 5
+          for O in https://zoozsoos.co https://example.com; do
+            echo "== origin $O"
+            curl -sS -m 40 -I -H "origin: $O" "$URL" | grep -iE 'HTTP/|access-control-allow-origin' || echo '  (no allow-origin header)'
+          done
+          # the site's origin must be named back, and a stranger's must not be
+          curl -sS -m 40 -I -H 'origin: https://zoozsoos.co' "$URL" | grep -qi 'access-control-allow-origin: https://zoozsoos.co' \
+            || { echo '::error::the site is not allowed to read the proxy'; exit 1; }
+          curl -sS -m 40 -I -H 'origin: https://example.com' "$URL" | grep -qi 'access-control-allow-origin' \
+            && { echo '::error::the proxy still answers any origin'; exit 1; }
+          echo "the proxy answers the site and refuses everyone else"
+      - name: And still returns trains
+        run: |
+          URL=$(grep -oE "const LIVE_URL = '[^']+'" src/main.js | cut -d"'" -f2)
+          curl -sS -m 45 -o live.json -H 'origin: https://zoozsoos.co' "$URL"
+          node -e "const d=require('./live.json'); const t=Object.values(d.trains||{});
+            console.log('trains', t.length, '| positioned', t.filter(x=>x.delay!==null).length, '| late', t.filter(x=>x.delay>0).length, '| pairs', JSON.stringify(d.pairs));
+            if (t.length < 50) { console.log('::error::the proxy returned almost nothing'); process.exit(1); }"
