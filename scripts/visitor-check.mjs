@@ -21,22 +21,20 @@ async function visit(browser, name, opts, { touch = false } = {}) {
   console.log(`\n== ${name}`);
   const ctx = await browser.newContext(opts);
   const page = await ctx.newPage();
-  const errors = [], upstream = [];
+  const raw = [], errors = [], upstream = [];
   // A failed request to the live proxy is logged by the browser itself and cannot be caught in
   // the page. The proxy's upstream, Israel Railways' own planner, times out now and then; the
   // page retries and carries on showing the timetable, so that is a note, not a visitor's
   // problem. It only counts against the run if the live feed never comes good (checked below).
   // The browser's console line does not say which request failed, so the proxy's own bad
-  // responses are recorded here and a console error is only excused while one is outstanding.
+  // responses are counted separately and matched up at the end: the console message and the
+  // response event do not arrive in a fixed order, so the two cannot be paired as they land.
   let liveFailed = 0;
-  page.on('response', (r) => { if (/israel-by-rail-live|\/live\b/.test(r.url()) && !r.ok()) liveFailed++; });
-  page.on('requestfailed', (r) => { if (/israel-by-rail-live|\/live\b/.test(r.url())) liveFailed++; });
-  const note = (t) => {
-    if (liveFailed > 0 && /Failed to load resource/i.test(t)) { liveFailed--; upstream.push(t); return; }
-    errors.push(t);
-  };
-  page.on('pageerror', (e) => note(String(e.message)));
-  page.on('console', (m) => { if (m.type() === 'error') note(m.text().slice(0, 160)); });
+  const isLive = (u) => /israel-by-rail-live/.test(u) || /\/live(\?|$)/.test(u);
+  page.on('response', (r) => { if (isLive(r.url()) && !r.ok()) liveFailed++; });
+  page.on('requestfailed', (r) => { if (isLive(r.url())) liveFailed++; });
+  page.on('pageerror', (e) => raw.push(String(e.message)));
+  page.on('console', (m) => { if (m.type() === 'error') raw.push(m.text().slice(0, 160)); });
   const t0 = Date.now();
   await page.goto(URL, { waitUntil: 'load', timeout: 120000 });
   await page.waitForFunction(() => !!window.__app, null, { timeout: 120000 });
@@ -66,6 +64,10 @@ async function visit(browser, name, opts, { touch = false } = {}) {
   console.log(`  live: ${JSON.stringify(s.live)}`);
   console.log(`  tour: ${JSON.stringify(s.tour)}   draw calls ${s.info.calls}, fps ${s.info.fps}`);
 
+  // as many failed-resource lines as the live proxy had bad answers are that proxy's, not ours
+  for (const t of raw) {
+    if (liveFailed > 0 && /Failed to load resource/i.test(t)) { liveFailed--; upstream.push(t); } else errors.push(t);
+  }
   if (errors.length) fail(`${name}: ${errors.length} page errors, first: ${errors[0]}`);
   if (upstream.length) {
     const line = `${upstream.length} upstream hiccup(s), first: ${upstream[0]}`;
