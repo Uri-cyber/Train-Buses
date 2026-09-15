@@ -1,6 +1,6 @@
 name: Pre-flight check of the live site
 
-# Loads https://uri-cyber.github.io/Train-Buses/ in a real browser from a machine
+# Loads https://zoozsoos.co/ in a real browser from a machine
 # that can reach it, and reports whether a visitor would see a working page.
 # Runs every morning after the daily deploy has refreshed the timetable. GitHub emails the
 # repository owner whenever a scheduled run fails, so a broken site or a dead live proxy
@@ -22,7 +22,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: The site, the timetable and the live proxy
         run: |
-          SITE=https://uri-cyber.github.io/Train-Buses/
+          SITE=https://zoozsoos.co/
           echo "== the page"; curl -sS -o page.html -w 'HTTP %{http_code}  %{size_download} bytes  %{time_total}s\n' "$SITE"
           echo "== the timetable"; curl -sS -o tt.json -w 'HTTP %{http_code}  %{size_download} bytes\n' "${SITE}timetable.json"
           node -e "
@@ -34,14 +34,14 @@ jobs:
             if (t.trips.length < 500) { console.log('::error::too few trips'); process.exit(1); }
             if (age > 30) console.log('::warning::the timetable is more than 30 hours old');
           "
-          echo "== the live proxy"; curl -sS -m 45 -o live.json -w 'HTTP %{http_code}  %{size_download} bytes  %{time_total}s\n' -H 'origin: https://uri-cyber.github.io' https://israel-by-rail-live.meiriuri.workers.dev/live
+          echo "== the live proxy"; curl -sS -m 45 -o live.json -w 'HTTP %{http_code}  %{size_download} bytes  %{time_total}s\n' -H 'origin: https://zoozsoos.co' https://israel-by-rail-live.meiriuri.workers.dev/live
           node -e "
             const d=require('./live.json'); const t=Object.values(d.trains||{});
             console.log('trains', t.length, '| reporting a position', t.filter(x=>x.delay!==null).length, '| late', t.filter(x=>x.delay>0).length, '| pairs', JSON.stringify(d.pairs));
             if (t.length < 50) { console.log('::error::the live proxy returned almost nothing'); process.exit(1); }
           "
       - name: What a visitor actually sees
-        run: node scripts/visitor-check.mjs https://uri-cyber.github.io/Train-Buses/
+        run: node scripts/visitor-check.mjs https://zoozsoos.co/
       - uses: actions/upload-artifact@v4
         if: always()
         with:
