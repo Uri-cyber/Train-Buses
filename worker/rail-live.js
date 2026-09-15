@@ -17,7 +17,7 @@ const RAIL_KEY = '5e64d66cf03f4547bcac5de2de06b566';        // the public web ap
 // train the worker asks about every origin-destination pair in the timetable.
 // It learns those pairs from the page's own timetable.json a few times a day;
 // until that loads, these end-to-end journeys cover most of the network.
-const TIMETABLE_URL = 'https://uri-cyber.github.io/Train-Buses/timetable.json';
+const TIMETABLE_URL = 'https://zoozsoos.co/timetable.json';
 const FALLBACK_PAIRS = [
   [1600, 7320], [1840, 400], [680, 3500], [1280, 3700], [2300, 5900], [8700, 9100],
   [7500, 3700], [9700, 3700], [6700, 6300], [9800, 3500], [2940, 4690], [1300, 5800],
