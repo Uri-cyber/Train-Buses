@@ -84,6 +84,29 @@
   #credit .en-note { opacity: 0.9; margin-bottom: 3px; }
   #credit a { color: #cfe3ff; pointer-events: auto; }
   @media (max-width: 700px) { #credit { font-size: 10px; bottom: 6px; } }
+  /* The desk is drawn in 3D, which no screen reader and no Tab key can reach. These are the
+     same six switches as real buttons: out of the way until one takes focus, then in plain
+     sight. Keyboard and screen-reader users get the console; the view stays uncluttered. */
+  /* Out of sight but still focusable, the way a skip link is: clipped to a pixel rather than
+     display:none, which no keyboard could ever reach. Focus turns it back into a real bar. */
+  #controls {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  #controls.shown {
+    position: fixed; width: auto; height: auto; overflow: visible; clip: auto;
+    left: 50%; transform: translateX(-50%); bottom: 12px; z-index: 8;
+    display: flex; gap: 6px; padding: 8px; border-radius: 12px;
+    background: rgba(8, 20, 38, 0.9); backdrop-filter: blur(6px);
+  }
+  #controls button {
+    font: 12px system-ui, "Segoe UI", Arial, sans-serif; color: #f3ede2; cursor: pointer;
+    background: #1c2230; border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 8px;
+    padding: 7px 11px;
+  }
+  #controls button[aria-pressed="true"] { background: #2d4a73; border-color: #cfe3ff; }
+  #controls button:focus-visible { outline: 3px solid #ffd27a; outline-offset: 2px; }
+  #view:focus-visible { outline: 3px solid #ffd27a; outline-offset: -3px; }
   /* read by a screen reader, never shown */
   .sr-only {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -114,6 +137,14 @@
     <div class="en-note">Independent, unofficial project. Not affiliated with Israel Railways or the Ministry of Transport. For illustration only; data may be wrong or out of date. Do not rely on it to plan travel.</div>
     Map: Natural Earth (public domain). Rails and stations: OpenStreetMap contributors (ODbL) when reachable.
   </div>
+  <nav id="controls" aria-label="שולחן הבקרה">
+    <button type="button" data-btn="lights" aria-pressed="false" aria-label="תאורה. הדלקה וכיבוי של אורות הרכבות והתחנות">תאורה</button>
+    <button type="button" data-btn="autoSun" aria-pressed="false" aria-label="שמש אמיתית. סנכרון התאורה לשעה הנוכחית בישראל">שמש אמיתית</button>
+    <button type="button" data-btn="turntable" aria-pressed="false" aria-label="סובב קטרים. הפעלת הסובב בדפו">סובב קטרים</button>
+    <button type="button" data-btn="traffic" aria-pressed="false" aria-label="תנועה. הצגת כלי רכב על הכבישים">תנועה</button>
+    <button type="button" data-btn="whistle" aria-label="צפירה. השמעת צפירת הקטר הקרוב">צפירה</button>
+    <button type="button" data-btn="tour" aria-pressed="false" aria-label="סיור אוטומטי. המצלמה עוברת בעצמה מרכבת לרכבת">סיור</button>
+  </nav>
   <div id="sound" title="מוזיקה (M)">♪</div>
   <div id="loading"><div>מניחים את המסילות…<small>laying the track</small></div></div>
   <script type="module" src="/src/main.js"></script>

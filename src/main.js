@@ -133,8 +133,28 @@ const hud = createHud(renderer, state, {
     if (id === 'whistle') { const t = built.trains.nearestTo(cam.controls.target); (t && t.kind === 'heritage' ? whistle : horn)(); }
     if (id === 'autoSun' && on) state.hour = israelClock().hour;
     if (id === 'tour') tour.set(on);
+    syncControls();
   },
 });
+
+// The 3D desk cannot be reached by Tab or read aloud, so the page carries the same six
+// switches as real buttons. They drive the desk, and the desk drives them back: pressing a
+// 3D button, or a number key, updates what the buttons report to a screen reader.
+const controlsEl = document.getElementById('controls');
+// the strip rides up when anything in it takes focus, and slides away when focus leaves
+controlsEl.addEventListener('focusin', () => controlsEl.classList.add('shown'));
+controlsEl.addEventListener('focusout', (e) => {
+  if (!controlsEl.contains(e.relatedTarget)) controlsEl.classList.remove('shown');
+});
+const controlEls = [...document.querySelectorAll('#controls button')];
+for (const el of controlEls) el.addEventListener('click', () => hud.press(el.dataset.btn));
+const syncControls = () => {
+  for (const el of controlEls) {
+    if (el.dataset.btn === 'whistle') continue;                  // a whistle is not a setting
+    el.setAttribute('aria-pressed', String(!!state[el.dataset.btn]));
+  }
+};
+syncControls();
 
 /* ------------------------------------------------------------ interaction */
 const QUALITIES = ['high', 'medium', 'low'];
@@ -309,8 +329,13 @@ setInterval(ttStatus, 5000);
 const statusEl = document.getElementById('status');
 const setStatus = (he, en) => { if (statusEl) statusEl.innerHTML = `<span dir="rtl">${he}</span><span dir="ltr">${en}</span>`; };
 setStatus('מסילות: Natural Earth (מקורב). מוריד את הרשת העדכנית מ-OpenStreetMap…', 'Rails: Natural Earth (approximate). Fetching the current network from OpenStreetMap…');
+// The bundled OpenStreetMap snapshot is the default source. ?osm=live skips it and asks the
+// public Overpass mirrors directly; ?osm=<url> reads another snapshot; ?osm=off keeps the
+// coarse built-in map.
 const osmParam = params.get('osm');
-const fixtureUrl = osmParam === 'fixture' ? './fixtures/overpass-israel.json' : osmParam && osmParam !== 'off' ? osmParam : null;
+const fixtureUrl = osmParam === 'live' ? null
+  : osmParam && osmParam !== 'off' && osmParam !== 'fixture' ? osmParam
+  : './fixtures/overpass-israel.json';
 if (osmParam !== 'off') {
   setTimeout(() => {
     loadLiveNetwork({

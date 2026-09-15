@@ -62,12 +62,22 @@ export async function fetchOverpass(query, { timeoutMs = 150000, onStatus = () =
 /**
  * @returns { rails, stations, fetched, source: 'cache' | 'live' | 'fixture' } or null
  */
-export async function loadLiveNetwork({ world, curated, onStatus = () => {}, force = false, fixtureUrl = null }) {
+export async function loadLiveNetwork({ world, curated, onStatus = () => {}, force = false, fixtureUrl = null, fallbackToMirrors = true }) {
+  // The bundled snapshot comes first: it is the same network, it arrives in one request from
+  // our own server, and it spares the volunteer-run Overpass mirrors a query per visitor.
+  // Only if it cannot be read does the page go out to those mirrors.
   if (fixtureUrl) {
-    onStatus('fetching', fixtureUrl);
-    const j = await (await fetch(fixtureUrl)).json();
-    const parsed = parseOverpass({ railsJson: j.rails, stationsJson: j.stations, world, curated });
-    return { ...parsed, fetched: j.fetched || Date.now(), source: 'fixture' };
+    try {
+      onStatus('fetching', fixtureUrl);
+      const r = await fetch(fixtureUrl);
+      if (!r.ok) throw new Error(`fixture ${r.status}`);
+      const j = await r.json();
+      const parsed = parseOverpass({ railsJson: j.rails, stationsJson: j.stations, world, curated });
+      return { ...parsed, fetched: j.fetched || Date.now(), source: 'fixture' };
+    } catch (e) {
+      if (!fallbackToMirrors) throw e;
+      onStatus('fixture-failed', String(e?.message || e));
+    }
   }
   const cached = await idbGet();
   if (cached && !force && Date.now() - cached.fetched < MAX_AGE) return { ...cached, source: 'cache' };

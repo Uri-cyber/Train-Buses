@@ -59,8 +59,10 @@ jobs:
         run: npm run test:live
       - name: Also produce the single-file build
         run: SINGLE=1 npm run build && cp dist-single/index.html dist/standalone.html
-      - name: Remove the test fixture from the deployed site
-        run: rm -rf dist/fixtures dist/live-fixture.json dist/timetable-fixture.json
+      # dist/fixtures stays: the OpenStreetMap snapshot in it is now the map every visitor
+      # gets, not a test file. The synthetic timetable and live feed are still test-only.
+      - name: Remove the test fixtures from the deployed site
+        run: rm -f dist/live-fixture.json dist/timetable-fixture.json
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

@@ -28,7 +28,17 @@ const STATIONS_TTL_S = 86400;
 const PAIRS_TTL_S = 6 * 3600;
 
 const headers = { 'content-type': 'application/json', accept: 'application/json', 'ocp-apim-subscription-key': RAIL_KEY, 'user-agent': 'Mozilla/5.0 (israel-by-rail live proxy)' };
-const cors = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, OPTIONS', 'access-control-allow-headers': '*', 'content-type': 'application/json; charset=utf-8' };
+// Only the site may read this proxy in a browser. It carries a subscription key on our behalf,
+// so an open door would let any page on the web spend our quota. Requests with no Origin at
+// all (curl, a health check, the pre-flight) still get an answer: the browser's same-origin
+// rules are what this list governs, and a server-side caller was never bound by them anyway.
+const ALLOWED_ORIGINS = ['https://zoozsoos.co'];
+const corsFor = (origin) => ({
+  ...(ALLOWED_ORIGINS.includes(origin) ? { 'access-control-allow-origin': origin, vary: 'Origin' } : { vary: 'Origin' }),
+  'access-control-allow-methods': 'GET, OPTIONS',
+  'access-control-allow-headers': '*',
+  'content-type': 'application/json; charset=utf-8',
+});
 
 const railDay = () => {
   const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
@@ -133,6 +143,7 @@ async function build() {
 
 export default {
   async fetch(request) {
+    const cors = corsFor(request.headers.get('origin'));
     if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
     const url = new URL(request.url);
     if (url.pathname !== '/' && url.pathname !== '/live') return new Response('Israel by Rail live proxy: GET /live', { status: 404, headers: cors });
