@@ -29,9 +29,10 @@ async function visit(browser, name, opts, { touch = false } = {}) {
   // answers, and the live proxy's upstream, Israel Railways' own planner, times out now and
   // then. A failure on the site's own files is a real fault; another host's is a note, unless
   // the page never recovered.
-  const site = new URL(URL);
+  const host = (u) => { try { return new globalThis.URL(u).host; } catch { return u; } };  // URL here is the address, not the class
+  const site = host(URL);
   const failed = [];
-  const record = (u, why) => { try { failed.push(`${new URL(u).host} ${why}`); } catch { failed.push(`${u} ${why}`); } };
+  const record = (u, why) => failed.push(`${host(u)} ${why}`);
   page.on('response', (r) => { if (!r.ok() && r.status() >= 400) record(r.url(), r.status()); });
   page.on('requestfailed', (r) => record(r.url(), r.failure()?.errorText || 'request failed'));
   page.on('pageerror', (e) => raw.push(String(e.message)));
@@ -70,7 +71,7 @@ async function visit(browser, name, opts, { touch = false } = {}) {
   for (const t of raw) {
     const hit = /Failed to load resource/i.test(t) ? queue.shift() : null;
     if (hit === undefined || hit === null) { errors.push(t); continue; }
-    (hit.startsWith(site.host) ? errors : upstream).push(hit);
+    (hit.startsWith(site) ? errors : upstream).push(hit);
   }
   if (errors.length) fail(`${name}: ${errors.length} page errors, first: ${errors[0]}`);
   if (upstream.length) {
