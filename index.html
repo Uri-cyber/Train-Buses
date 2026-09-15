@@ -74,16 +74,17 @@
   }
   #tour b { color: #c7a2ff; }
   #tour .en { direction: ltr; text-align: left; color: #cfe3ff; font-size: 12px; }
+  /* A disclaimer nobody can read is not a disclaimer: 12px and full opacity, no dimming. */
   #credit {
     position: fixed; left: 12px; bottom: 8px; z-index: 5; direction: ltr;
-    font: 11px system-ui, "Segoe UI", Arial, sans-serif; color: #9db8d8; opacity: 0.8;
+    font: 12px/1.45 system-ui, "Segoe UI", Arial, sans-serif; color: #cfe0f5;
     pointer-events: none; max-width: min(560px, calc(100vw - 24px));
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
   }
-  /* the disclaimer has to be readable, so it keeps its own contrast and stays clickable */
-  #credit .he { direction: rtl; text-align: right; opacity: 0.95; margin-bottom: 3px; }
-  #credit .en-note { opacity: 0.9; margin-bottom: 3px; }
-  #credit a { color: #cfe3ff; pointer-events: auto; }
-  @media (max-width: 700px) { #credit { font-size: 10px; bottom: 6px; } }
+  #credit .he { direction: rtl; text-align: right; margin-bottom: 3px; }
+  #credit .en-note { margin-bottom: 3px; }
+  #credit a { color: #ffd27a; pointer-events: auto; }
+  @media (max-width: 700px) { #credit { bottom: 6px; } }
   /* The desk is drawn in 3D, which no screen reader and no Tab key can reach. These are the
      same six switches as real buttons: out of the way until one takes focus, then in plain
      sight. Keyboard and screen-reader users get the console; the view stays uncluttered. */
@@ -135,7 +136,7 @@
   <div id="credit">
     <div class="he">אתר עצמאי ולא רשמי, ללא קשר לרכבת ישראל או למשרד התחבורה. המידע להמחשה בלבד ועשוי להיות שגוי או לא מעודכן. אין להסתמך עליו לתכנון נסיעה. לוח זמנים ומצב רכבות: אתר ואפליקציית רכבת ישראל. <a href="./accessibility.html">הצהרת נגישות</a></div>
     <div class="en-note">Independent, unofficial project. Not affiliated with Israel Railways or the Ministry of Transport. For illustration only; data may be wrong or out of date. Do not rely on it to plan travel.</div>
-    Map: Natural Earth (public domain). Rails and stations: OpenStreetMap contributors (ODbL) when reachable.
+    Map: Natural Earth (public domain). Rails and stations: OpenStreetMap contributors (ODbL) when reachable. Timetable: Israel Ministry of Transport (GTFS).
   </div>
   <nav id="controls" aria-label="שולחן הבקרה">
     <button type="button" data-btn="lights" aria-pressed="false" aria-label="תאורה. הדלקה וכיבוי של אורות הרכבות והתחנות">תאורה</button>
