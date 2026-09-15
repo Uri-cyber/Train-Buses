@@ -2,7 +2,12 @@ name: Pre-flight check of the live site
 
 # Loads https://uri-cyber.github.io/Train-Buses/ in a real browser from a machine
 # that can reach it, and reports whether a visitor would see a working page.
+# Runs every morning after the daily deploy has refreshed the timetable. GitHub emails the
+# repository owner whenever a scheduled run fails, so a broken site or a dead live proxy
+# reaches the inbox without anyone having to look.
 on:
+  schedule:
+    - cron: '0 4 * * *'        # 07:00 Israel time, well into the morning service
   workflow_dispatch:
 
 jobs:
