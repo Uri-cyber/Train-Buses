@@ -2,12 +2,18 @@ name: Pre-flight check of the live site
 
 # Loads https://zoozsoos.co/ in a real browser from a machine
 # that can reach it, and reports whether a visitor would see a working page.
-# Runs every morning after the daily deploy has refreshed the timetable. GitHub emails the
-# repository owner whenever a scheduled run fails, so a broken site or a dead live proxy
-# reaches the inbox without anyone having to look.
+# Runs every day after the deploy has refreshed the timetable. GitHub emails the repository
+# owner whenever a scheduled run fails, so a broken site or a dead live proxy reaches the
+# inbox without anyone having to look.
+#
+# The hour below is a request, not a promise. GitHub runs this repository's schedules about
+# four and a half to five hours behind the asked-for minute, every day without exception: the
+# deploy asks for 01:20 and starts between 05:48 and 06:18. So this lands around midday in
+# Israel rather than the morning, which is fine for what it checks (trains are running either
+# way) and safely after the deploy.
 on:
   schedule:
-    - cron: '0 4 * * *'        # 07:00 Israel time, well into the morning service
+    - cron: '0 4 * * *'        # asks for 07:00 Israel time; in practice around midday
   workflow_dispatch:
 
 jobs:
