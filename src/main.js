@@ -140,6 +140,16 @@ const hud = createHud(renderer, state, {
 // The 3D desk cannot be reached by Tab or read aloud, so the page carries the same six
 // switches as real buttons. They drive the desk, and the desk drives them back: pressing a
 // 3D button, or a number key, updates what the buttons report to a screen reader.
+// the small print in the corner opens and closes on its own word
+const creditEl = document.getElementById('credit');
+const creditToggle = document.getElementById('credit-toggle');
+creditToggle?.addEventListener('click', () => {
+  const open = creditEl.hidden;
+  creditEl.hidden = !open;
+  creditToggle.setAttribute('aria-expanded', String(open));
+  creditToggle.textContent = open ? 'סגור' : 'מידע ותנאים';
+});
+
 const controlsEl = document.getElementById('controls');
 // the strip rides up when anything in it takes focus, and slides away when focus leaves
 controlsEl.addEventListener('focusin', () => controlsEl.classList.add('shown'));

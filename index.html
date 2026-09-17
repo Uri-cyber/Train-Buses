@@ -74,17 +74,30 @@
   }
   #tour b { color: #c7a2ff; }
   #tour .en { direction: ltr; text-align: left; color: #cfe3ff; font-size: 12px; }
-  /* A disclaimer nobody can read is not a disclaimer: 12px and full opacity, no dimming. */
-  #credit {
-    position: fixed; left: 12px; bottom: 8px; z-index: 5; direction: ltr;
-    font: 12px/1.45 system-ui, "Segoe UI", Arial, sans-serif; color: #cfe0f5;
-    pointer-events: none; max-width: min(560px, calc(100vw - 24px));
+  /* The small print folds away so the map has the screen to itself, behind one quiet word in
+     the corner. Folded or open it stays in the page and in the reading order, so a search
+     engine and a screen reader both still find it; only the eye is spared. */
+  #creditbar { position: fixed; left: 12px; bottom: 8px; z-index: 5; }
+  #credit-toggle {
+    font: 12px system-ui, "Segoe UI", Arial, sans-serif; color: #9db8d8;
+    background: rgba(8, 20, 38, 0.55); border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 7px; padding: 4px 9px; cursor: pointer; direction: rtl;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
   }
-  #credit .he { direction: rtl; text-align: right; margin-bottom: 3px; }
-  #credit .en-note { margin-bottom: 3px; }
-  #credit a { color: #ffd27a; pointer-events: auto; }
-  @media (max-width: 700px) { #credit { bottom: 6px; } }
+  #credit-toggle:hover { color: #f3ede2; }
+  #credit-toggle:focus-visible { outline: 3px solid #ffd27a; outline-offset: 2px; }
+  /* A disclaimer nobody can read is not a disclaimer: 12px and full opacity, no dimming. */
+  #credit {
+    direction: ltr; margin-bottom: 6px; max-width: min(560px, calc(100vw - 24px));
+    font: 12px/1.45 system-ui, "Segoe UI", Arial, sans-serif; color: #cfe0f5;
+    background: rgba(8, 20, 38, 0.82); backdrop-filter: blur(6px);
+    border-radius: 9px; padding: 8px 11px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  }
+  #credit[hidden] { display: none; }
+  #credit .he { direction: rtl; text-align: right; margin-bottom: 4px; }
+  #credit .en-note { margin-bottom: 4px; }
+  #credit a { color: #ffd27a; }
+  @media (max-width: 700px) { #creditbar { bottom: 6px; } }
   /* The desk is drawn in 3D, which no screen reader and no Tab key can reach. These are the
      same six switches as real buttons: out of the way until one takes focus, then in plain
      sight. Keyboard and screen-reader users get the console; the view stays uncluttered. */
@@ -133,10 +146,13 @@
   <div id="status"></div>
   <div id="timetable"></div>
   <div id="tour" hidden><b>סיור אוטומטי</b> · הזיזו את העכבר כדי לקחת את המצלמה<div class="en">Auto tour · move the mouse to take the camera</div></div>
-  <div id="credit">
+  <div id="creditbar">
+  <div id="credit" hidden>
     <div class="he">אתר עצמאי ולא רשמי, ללא קשר לרכבת ישראל או למשרד התחבורה. המידע להמחשה בלבד ועשוי להיות שגוי או לא מעודכן. אין להסתמך עליו לתכנון נסיעה. לוח זמנים ומצב רכבות: אתר ואפליקציית רכבת ישראל. <a href="./accessibility.html">הצהרת נגישות</a></div>
     <div class="en-note">Independent, unofficial project. Not affiliated with Israel Railways or the Ministry of Transport. For illustration only; data may be wrong or out of date. Do not rely on it to plan travel.</div>
     Map: Natural Earth (public domain). Rails and stations: OpenStreetMap contributors (ODbL) when reachable. Timetable: Israel Ministry of Transport (GTFS).
+  </div>
+  <button type="button" id="credit-toggle" aria-expanded="false" aria-controls="credit">מידע ותנאים</button>
   </div>
   <nav id="controls" aria-label="שולחן הבקרה">
     <button type="button" data-btn="lights" aria-pressed="false" aria-label="תאורה. הדלקה וכיבוי של אורות הרכבות והתחנות">תאורה</button>
