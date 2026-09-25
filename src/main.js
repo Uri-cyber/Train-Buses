@@ -287,8 +287,31 @@ function frame() {
     !state.autoSun ? 'שעה מכוונת ידנית' : skyFast ? `זמן מואץ ×${TIME_SCALE}` : 'השעה בישראל עכשיו');
   hud.render();
   frames++; fpsT += dt;
-  if (fpsT >= 1) { app.fps = Math.round(frames / fpsT); frames = 0; fpsT = 0; }
+  if (fpsT >= 1) { app.fps = Math.round(frames / fpsT); frames = 0; fpsT = 0; autoQuality(app.fps); }
   requestAnimationFrame(frame);
+}
+
+// Smoothness first. A machine that cannot hold the full look steps down, one notch at a time:
+// fewer pixels, then no outline, then no bloom or tilt-shift. It waits for four slow seconds in
+// a row before each step, so a single hitch (a tab switch, a timetable load) does not cost the
+// look, and it never steps back up, so the picture does not flicker between two settings.
+// ?q=high|medium|low pins a level and switches this off; the Q key does too.
+const AUTO = !params.has('q');
+if (params.has('q')) post.setQuality(['high', 'medium', 'low'].includes(params.get('q')) ? params.get('q') : 'high');
+let slowSeconds = 0, autoStep = 0, autoOff = !AUTO;
+addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 'q') autoOff = true; });
+function autoQuality(fps) {
+  // automated browsers (the checks, the screenshots) keep the full look so their pictures compare
+  if (autoOff || !started || document.hidden || navigator.webdriver) return;
+  slowSeconds = fps < 40 ? slowSeconds + 1 : 0;
+  if (slowSeconds < 4) return;
+  slowSeconds = 0;
+  autoStep++;
+  if (autoStep === 1) { renderer.setPixelRatio(1); post.setPixelRatio(1); dispatchEvent(new Event('resize')); }
+  else if (autoStep === 2) post.setQuality('medium');
+  else if (autoStep === 3) post.setQuality('low');
+  else autoOff = true;
+  app.autoQuality = { step: autoStep, quality: post.quality, pixelRatio: renderer.getPixelRatio() };
 }
 
 tour.begin();

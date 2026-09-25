@@ -29,20 +29,19 @@ const ZS = 0.65;                   // ...and squashed along the track so they st
 // the waist, white upper deck, a low arched roof) so the train reads as one object; the
 // cabs slope back, the windows sit in pale frames, the doors are drawn, and each car stands
 // on two bogies with real wheels instead of hovering over the rails.
-const SKIRT = 0x1e2630, FRAME = 0xe4e9ee, BOGIE = 0x2a2e33, WHEEL = 0x3a3f46, HUB = 0x8f969e;
+const SKIRT = 0x1e2630, FRAME = 0xe4e9ee, BOGIE = 0x2a2e33, WHEEL = 0x3a3f46;
 /** the low curved roof: a cylinder along z, flattened, its lower half hidden inside the body */
 function roofArch(b, len, y, colour) {
-  const g = new THREE.CylinderGeometry(W / 2 + 0.005, W / 2 + 0.005, len, 18, 1);
+  const g = new THREE.CylinderGeometry(W / 2 + 0.005, W / 2 + 0.005, len, 12, 1);
   g.rotateX(Math.PI / 2); g.scale(1, 0.42, 1); g.translate(0, y, 0);
   b.add(g, colour, 0.02);
 }
 /** one bogie with four wheels, centred at z */
 function bogie(b, z) {
   b.box(0, 0.115, z, 0.50, 0.07, 0.50, BOGIE);
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    b.cyl(sx * 0.245, 0.085, z + sz * 0.16, 0.085, 0.04, WHEEL, 12, { rotZ: Math.PI / 2 });
-    b.cyl(sx * 0.268, 0.085, z + sz * 0.16, 0.035, 0.01, HUB, 8, { rotZ: Math.PI / 2 });
-  }
+  // eight-sided wheels and no separate hubs: at toy scale nobody can count the facets, and a
+  // train is drawn three times a frame (shadow, outline, colour) for every car on the network
+  for (const sz of [-1, 1]) b.cyl(0, 0.085, z + sz * 0.16, 0.085, 0.53, WHEEL, 8, { rotZ: Math.PI / 2 });   // an axle shows a wheel each side
 }
 /** the body section every car shares: skirt, lower deck, waist band, upper deck */
 function bodyShell(b, len) {
@@ -51,10 +50,13 @@ function bodyShell(b, len) {
   b.box(0, 0.38, 0, W + 0.012, 0.04, len + 0.004, C.trainRed);
   b.box(0, 0.56, 0, W, 0.32, len, C.trainWhite, { jitter: 0.015 });
 }
-/** a window: pale frame in the solid mesh, the pane in the glow mesh so it can light at dusk */
+/** a window pane, in the glow mesh so it can light at dusk (its frame comes from windowBand) */
 function pane(b, g, s, y, z, w, h) {
-  b.box(s * (W / 2 + 0.003), y, z, 0.006, h + 0.03, w + 0.03, FRAME);
   g.box(s * (W / 2 + 0.008), y, z, 0.006, h, w, 0xffffff, { jitter: 0.03 });
+}
+/** one pale band behind a whole row of panes: reads as frames, costs one box instead of six */
+function windowBand(b, s, y, z0, z1, h) {
+  b.box(s * (W / 2 + 0.003), y, (z0 + z1) / 2, 0.006, h + 0.03, z1 - z0 + 0.03, FRAME);
 }
 /** a sliding door pair: a lighter panel with a dark centre line */
 function door(b, s, z) {
@@ -81,9 +83,9 @@ const CATALOGUE = {
     roofArch(b, 1.75, 0.72, C.trainGrey);
     for (const s of [-1, 1]) {
       cab(b, g, s);
-      for (const x of [-1, 1]) pane(b, g, x, 0.56, s * 0.72, 0.20, 0.15);   // cab side window
-      pane(b, g, s, 0.56, 0, 0.42, 0.15);                                     // a long saloon window each side
-      pane(b, g, s, 0.27, 0, 0.42, 0.11);
+      for (const x of [-1, 1]) { windowBand(b, x, 0.56, s * 0.72 - 0.10, s * 0.72 + 0.10, 0.15); pane(b, g, x, 0.56, s * 0.72, 0.20, 0.15); }   // cab side window
+      windowBand(b, s, 0.56, -0.21, 0.21, 0.15); pane(b, g, s, 0.56, 0, 0.42, 0.15);   // a long saloon window each side
+      windowBand(b, s, 0.27, -0.21, 0.21, 0.11); pane(b, g, s, 0.27, 0, 0.42, 0.11);
       bogie(b, s * 0.70);
     }
     // pantograph: two arms leaning into each other, a bar across the top
@@ -98,6 +100,8 @@ const CATALOGUE = {
     bodyShell(b, 2.3);
     roofArch(b, 2.28, 0.72, C.trainGrey);
     for (const s of [-1, 1]) {
+      windowBand(b, s, 0.58, -0.69, 0.69, 0.14);
+      windowBand(b, s, 0.27, -0.69, 0.69, 0.10);
       for (let i = 0; i < 6; i++) {
         const z = -0.60 + i * 0.24;
         pane(b, g, s, 0.58, z, 0.18, 0.14);   // upper deck
@@ -230,7 +234,7 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
     }
     const free = [];
     for (let i = n - 1; i >= 0; i--) free.push(i);
-    types[name] = { solid, glow, next: 0, free, len: spec.len * SCALE * ZS };
+    types[name] = { solid, glow, next: 0, free, len: spec.len * SCALE * ZS, used: new Uint8Array(n), cap: n };
   }
   const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
   for (const ty of Object.values(types)) for (let i = 0; i < ty.solid.count; i++) { ty.solid.setMatrixAt(i, ZERO); if (ty.glow) ty.glow.setMatrixAt(i, ZERO); }
@@ -474,11 +478,41 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
   };
 
   /* --------------------------------------------- timetable running */
+  // The pools are sized for the busiest minute of the day, but an InstancedMesh draws every
+  // instance up to its count, parked or not. So slots are handed out lowest first, and each
+  // mesh draws only up to the highest slot in use: at 60 trains that is a fraction of the pool.
+  const takeLowest = (arr) => {
+    let mi = 0;
+    for (let i = 1; i < arr.length; i++) if (arr[i] < arr[mi]) mi = i;
+    const v = arr[mi]; arr[mi] = arr[arr.length - 1]; arr.pop();
+    return v;
+  };
+  let countsDirty = true;
+  const slotUsed = new Uint8Array(Math.max(1, maxSlots));
+  const trimCounts = () => {
+    if (!countsDirty || !scheduled) return;
+    countsDirty = false;
+    for (const ty of Object.values(types)) {
+      let hi = ty.cap - 1;
+      while (hi >= 0 && !ty.used[hi]) hi--;
+      ty.solid.count = hi + 1;
+      if (ty.glow) ty.glow.count = hi + 1;
+    }
+    let hi = slotUsed.length - 1;
+    while (hi >= 0 && !slotUsed[hi]) hi--;
+    beams.count = pools.count = hi + 1;
+  };
   const activate = (t) => {
     if (t.active) return true;
     if (!t.freeSlots.length) return false;
-    t.slot = t.freeSlots.pop();
-    t.cars = SLOT_CARS.map((name) => ({ type: name, idx: types[name].free.pop(), len: types[name].len, onAt: 0.30 + R() * 0.45, level: R() < 0.08 ? 0.15 : 0.75 + R() * 0.35 }));
+    t.slot = takeLowest(t.freeSlots);
+    slotUsed[t.slot] = 1;
+    t.cars = SLOT_CARS.map((name) => {
+      const idx = takeLowest(types[name].free);
+      types[name].used[idx] = 1;
+      return { type: name, idx, len: types[name].len, onAt: 0.30 + R() * 0.45, level: R() < 0.08 ? 0.15 : 0.75 + R() * 0.35 };
+    });
+    countsDirty = true;
     t.active = true;
     activatedThisFrame = true;
     return true;
@@ -491,10 +525,13 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
       ty.solid.setMatrixAt(car.idx, ZERO);
       if (ty.glow) { ty.glow.setMatrixAt(car.idx, ZERO); ty.glow.instanceColor.setXYZ(car.idx, 1, 1, 1); ty.glow.instanceColor.needsUpdate = true; }
       ty.free.push(car.idx);
+      ty.used[car.idx] = 0;
     }
     beams.setMatrixAt(t.slot, ZERO);
     pools.setMatrixAt(t.slot, ZERO);
-    t.freeSlots.push(t.slot); t.slot = -1; t.cars = null; t.active = false; t.v = 0;
+    slotUsed[t.slot] = 0;
+    countsDirty = true;
+    t.freeSlots.push(t.slot); t.slot = -1; t.cars = null; t.active = false; t.v = 0; t.corr = 0; t.lastTarget = undefined;
     if (t.plate) t.plate.visible = false;
   };
   let replay = false, activeNow = 0, dayKey = null, activatedThisFrame = false, lastT = null;
@@ -534,11 +571,23 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
       // speed comes from how far the timetable clock moved, not from how long the frame took:
       // a slow frame or a throttled tab would otherwise read as a train doing 500 km/h
       if (dT > 0) {
-        const raw = Math.abs(target - t.d) / dT;
+        const raw = Math.abs(target - (t.lastTarget ?? t.d)) / dT;     // the timetable's own motion, not the glide
         if (raw <= 3) t.v = t.v * 0.8 + raw * 0.2;          // a jump is not a speed: keep the last one
       }
       t.phase = prog.phase; t.toDep = prog.toDep;
-      t.d = target;
+      // A new live report can move a train's timetable position at once: a delay changes, or it
+      // is seen a station further on. Snapping there reads as a jolt, so the difference is kept
+      // as an offset that melts away over a second or two. A clock jump or a correction longer
+      // than a few kilometres still snaps, since gliding that far would look like a sprint.
+      const step = t.lastTarget === undefined ? 0 : target - t.lastTarget;
+      t.lastTarget = target;
+      if (jumped || Math.abs(step) > 6) t.corr = 0;
+      else if (Math.abs(step) > 0.25) t.corr = (t.corr || 0) - step;
+      if (t.corr) {
+        t.corr *= Math.exp(-frameDt * 1.6);
+        if (Math.abs(t.corr) < 0.002) t.corr = 0;
+      }
+      t.d = Math.max(t.total * 0.55, Math.min(t.route.length - t.total * 0.55, target + (t.corr || 0)));
       t.dwell = prog.stopped ? 1 : 0;
       place(t);
     }
@@ -566,7 +615,7 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
       elapsed += dt;
       frameDt = dt;
       activatedThisFrame = false;
-      if (scheduled) runScheduled(dt, clock || { T: 12 * 3600, ymd: '20260101', weekday: 4 });
+      if (scheduled) { runScheduled(dt, clock || { T: 12 * 3600, ymd: '20260101', weekday: 4 }); trimCounts(); }
       else {
         const factor = 0.15 + speedLever * 2.2;
         for (const t of trains) {

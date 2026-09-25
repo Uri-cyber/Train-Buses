@@ -157,7 +157,7 @@ const FinishShader = {
 
 export function createPost(renderer, scene, camera) {
   const size = renderer.getSize(new THREE.Vector2());
-  const dpr = renderer.getPixelRatio();
+  let dpr = renderer.getPixelRatio();
   const composer = new EffectComposer(renderer);
   composer.setPixelRatio(dpr);
   composer.setSize(size.x, size.y);
@@ -207,6 +207,8 @@ export function createPost(renderer, scene, camera) {
       tiltH.uniforms.focus.value = tiltV.uniforms.focus.value = y01;
       tiltH.uniforms.band.value = tiltV.uniforms.band.value = band;
     },
+    /** follow a change of the renderer's pixel ratio (the automatic quality step does this) */
+    setPixelRatio(pr) { dpr = pr; composer.setPixelRatio(pr); },
     resize(w, h) {
       composer.setSize(w, h);
       edge.setSize(w * dpr, h * dpr);
