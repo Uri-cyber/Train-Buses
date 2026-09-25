@@ -26,8 +26,11 @@ import { loadTimetable, israelDate } from './timetable.js';
 import { createLive } from './live.js';
 import { makeRouter } from './router.js';
 import { makeProjection } from './geo.js';
+import { pickStyle, applyPalette, applyLook } from './styles.js';
 
 const params = new URLSearchParams(location.search);
+const STYLE = pickStyle(params);                  // ?style=diorama | neon | poster; the palette is rewritten before anything is built
+applyPalette(STYLE);
 const DESK = params.has('desk');                  // background mode by default: no console, no help, just the map
 document.body.classList.toggle('desk', DESK);
 
@@ -53,6 +56,7 @@ const sky = createSky(scene);
 const lights = createLighting(scene, renderer);
 const cam = createCamera(renderer, terrain);
 const post = createPost(renderer, scene, cam.camera);
+applyLook(STYLE, { post, lights, renderer });
 const traffic = createTraffic(world, terrain, terrain.mask);
 scene.add(traffic.group);
 

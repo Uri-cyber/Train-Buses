@@ -26,8 +26,9 @@ export function createLighting(scene, renderer) {
 
   const _target = new THREE.Vector3();
 const _dir = new THREE.Vector3();
+  const style = { ground: null, sunTint: null };                 // set by styles.js
   return {
-    sun, hemi, moon,
+    sun, hemi, moon, style,
     /**
      * @param sky   result of sky.update()
      * @param focus world point the camera looks at
@@ -45,7 +46,7 @@ const _dir = new THREE.Vector3();
       // amber at the horizon, gold through the golden hour, neutral by mid-morning; once the sun is
       // under the horizon its faint fill turns cool so the desert does not glow red all night
       const sunset = mixHex(0x6a6a88, 0xffa860, clamp01((el + 0.03) * 30));
-      sun.color.setHex(mixHex(mixHex(sunset, 0x93a9d6, night), mixHex(0xffc98a, C.sun, clamp01(el * 4)), clamp01(el * 10)));
+      sun.color.setHex(mixHex(mixHex(sunset, 0x93a9d6, night), mixHex(0xffc98a, style.sunTint ?? C.sun, clamp01(el * 4)), clamp01(el * 10)));
       sun.intensity = 0.12 + Math.pow(day, 0.75) * 1.9 + night * 0.34;
       // shadow box hugs what is on screen
       const S = Math.max(6, Math.min(280, dist * 0.95));
@@ -55,7 +56,7 @@ const _dir = new THREE.Vector3();
       sun.shadow.needsUpdate = true;
 
       hemi.color.setHex(mixHex(0x1a2a4a, C.horizonDay, day));
-      hemi.groundColor.setHex(mixHex(mixHex(0x121620, 0xcbb894, day), 0x8a7a9a, sky.blueHour * 0.6));
+      hemi.groundColor.setHex(mixHex(mixHex(0x121620, style.ground ?? 0xcbb894, day), 0x8a7a9a, sky.blueHour * 0.6));
       hemi.intensity = 0.14 + day * 0.8;
 
       moon.intensity = 0;                       // one shadow caster only: swapping them recompiles every program

@@ -243,10 +243,15 @@ function biomeColour(lon, lat, m, dWater, israel) {
 }
 
 /* the cartoon map has hard-edged colour bands: every ground colour snaps to the nearest swatch */
-const LAND_BANDS = ['plain', 'fields', 'sharon', 'galilee', 'forest', 'golan', 'olive', 'judea', 'stone', 'shephelah',
-  'judeanDesert', 'negev', 'negevSouth', 'ramon', 'arava', 'eilat', 'sand', 'abroad'].map((k) => C[k]);
-const _bandRgb = LAND_BANDS.map((h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255]);
+const BAND_KEYS = ['plain', 'fields', 'sharon', 'galilee', 'forest', 'golan', 'olive', 'judea', 'stone', 'shephelah',
+  'judeanDesert', 'negev', 'negevSouth', 'ramon', 'arava', 'eilat', 'sand', 'abroad'];
+// read from the palette on first use, not at import, so a style may rewrite the palette first
+let LAND_BANDS = null, _bandRgb = null;
 function snapBand(hex) {
+  if (!LAND_BANDS) {
+    LAND_BANDS = [...new Set(BAND_KEYS.map((k) => C[k]))];
+    _bandRgb = LAND_BANDS.map((h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255]);
+  }
   const r = (hex >> 16) & 255, g = (hex >> 8) & 255, b = hex & 255;
   let best = 0, bd = Infinity;
   for (let i = 0; i < _bandRgb.length; i++) {

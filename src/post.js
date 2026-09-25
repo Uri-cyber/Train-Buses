@@ -181,6 +181,7 @@ export function createPost(renderer, scene, camera) {
 
   const api = {
     composer, edge, bloom, tilt: [tiltH, tiltV], finish, quality: 'high',
+    style: { bloom: 1, bloomThreshold: 0, tilt: 1, exposure: 1 },       // set by styles.js
     setQuality(q) {
       api.quality = q;
       edge.enabled = q === 'high';
@@ -189,15 +190,15 @@ export function createPost(renderer, scene, camera) {
     },
     /** 0 = full day, 1 = deep night */
     setNight(t, dusk = 0, blueHour = 0) {
-      bloom.strength = 0.16 + t * 0.55 + dusk * 0.25;
-      bloom.threshold = 0.94 - t * 0.35 - dusk * 0.15;
-      renderer.toneMappingExposure = 1.0 + dusk * 0.12 - t * 0.15;
+      bloom.strength = (0.16 + t * 0.55 + dusk * 0.25) * api.style.bloom;
+      bloom.threshold = Math.max(0, 0.94 - t * 0.35 - dusk * 0.15 + api.style.bloomThreshold);
+      renderer.toneMappingExposure = (1.0 + dusk * 0.12 - t * 0.15) * api.style.exposure;
       finish.uniforms.warmth.value = dusk;
       finish.uniforms.blueHour.value = blueHour;
     },
     /** tilt-shift gets stronger the further out you are */
     setZoom(dist) {
-      const s = 0.6 + 1.6 * Math.min(1, dist / 350);
+      const s = (0.6 + 1.6 * Math.min(1, dist / 350)) * api.style.tilt;
       tiltH.uniforms.strength.value = tiltV.uniforms.strength.value = s;
     },
     /** where the sharp band sits on screen (0 = bottom, 1 = top) and how tall it is; nothing on 'low' */
