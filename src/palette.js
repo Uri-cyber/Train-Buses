@@ -24,7 +24,7 @@ export const C = {
 
   // An invented toy livery. Deliberately not any operator's brand colours: this is an
   // independent, unofficial model, and it should not look like it speaks for anyone.
-  trainBlue: 0x2f74c0, trainRed: 0xe2603f, trainWhite: 0xf3f3f1, trainGrey: 0x8f959c,
+  trainBlue: 0x2b64b5, trainRed: 0xe8683f, trainWhite: 0xf4f4f1, trainGrey: 0xb4bac2,
   steamBlack: 0x23272b, steamGreen: 0x2f5f45, brass: 0xd4a83a, woodCoach: 0x8a5a34,
   potash: 0x9aa1a3, container: [0x2f6fae, 0xc94a3b, 0xe0b23a, 0x3f8f5f, 0xe8e6df],
   eggedGreen: 0x1f8a4c, danBlue: 0x2a63b8, carWhite: 0xf2f2ee, carGrey: 0x9ea3a8, taxi: 0xf5f3ee,

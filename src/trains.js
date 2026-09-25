@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OUTLINE_LAYER } from './post.js';
 import { Builder, stdMat, glowMat, setInstance, rng, paint, _m4 as M4, _q as Q, _v as V, _s as S } from './builder.js';
 import { labelTexture } from './labels.js';
-import { C, smoothstep } from './palette.js';
+import { C, smoothstep, mixHex } from './palette.js';
 import { TRACK } from './rails.js';
 import { tripProgress, tripsForDay } from './timetable.js';
 
@@ -24,35 +24,92 @@ const cols = C.container;
 export const SCALE = 1.5;          // vehicles are built at unit scale, then blown up
 const ZS = 0.65;                   // ...and squashed along the track so they stay stubby
 
+// The modern set: a raked power car and double-deck coaches, built the way a good toy is
+// built. Every car shares one body section (dark skirt, blue lower deck, an accent band at
+// the waist, white upper deck, a low arched roof) so the train reads as one object; the
+// cabs slope back, the windows sit in pale frames, the doors are drawn, and each car stands
+// on two bogies with real wheels instead of hovering over the rails.
+const SKIRT = 0x1e2630, FRAME = 0xe4e9ee, BOGIE = 0x2a2e33, WHEEL = 0x3a3f46, HUB = 0x8f969e;
+/** the low curved roof: a cylinder along z, flattened, its lower half hidden inside the body */
+function roofArch(b, len, y, colour) {
+  const g = new THREE.CylinderGeometry(W / 2 + 0.005, W / 2 + 0.005, len, 18, 1);
+  g.rotateX(Math.PI / 2); g.scale(1, 0.42, 1); g.translate(0, y, 0);
+  b.add(g, colour, 0.02);
+}
+/** one bogie with four wheels, centred at z */
+function bogie(b, z) {
+  b.box(0, 0.115, z, 0.50, 0.07, 0.50, BOGIE);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    b.cyl(sx * 0.245, 0.085, z + sz * 0.16, 0.085, 0.04, WHEEL, 12, { rotZ: Math.PI / 2 });
+    b.cyl(sx * 0.268, 0.085, z + sz * 0.16, 0.035, 0.01, HUB, 8, { rotZ: Math.PI / 2 });
+  }
+}
+/** the body section every car shares: skirt, lower deck, waist band, upper deck */
+function bodyShell(b, len) {
+  b.box(0, 0.115, 0, 0.56, 0.07, len - 0.1, SKIRT);
+  b.box(0, 0.26, 0, W, 0.20, len, C.trainBlue, { jitter: 0.015 });
+  b.box(0, 0.38, 0, W + 0.012, 0.04, len + 0.004, C.trainRed);
+  b.box(0, 0.56, 0, W, 0.32, len, C.trainWhite, { jitter: 0.015 });
+}
+/** a window: pale frame in the solid mesh, the pane in the glow mesh so it can light at dusk */
+function pane(b, g, s, y, z, w, h) {
+  b.box(s * (W / 2 + 0.003), y, z, 0.006, h + 0.03, w + 0.03, FRAME);
+  g.box(s * (W / 2 + 0.008), y, z, 0.006, h, w, 0xffffff, { jitter: 0.03 });
+}
+/** a sliding door pair: a lighter panel with a dark centre line */
+function door(b, s, z) {
+  b.box(s * (W / 2 + 0.003), 0.43, z, 0.006, 0.54, 0.22, mixHex(C.trainBlue, 0xffffff, 0.22));
+  b.box(s * (W / 2 + 0.006), 0.43, z, 0.004, 0.54, 0.014, SKIRT);
+}
+/** a raked cab end at s = +1 (front) or -1 (rear): sloped windscreen, chin, lamps */
+function cab(b, g, s) {
+  const tilt = -s * 0.35;
+  b.box(0, 0.52, s * 1.02, 0.56, 0.36, 0.30, C.trainWhite, { rotX: tilt, jitter: 0.015 });   // nose
+  b.box(0, 0.25, s * 1.03, 0.58, 0.18, 0.30, C.trainBlue, { jitter: 0.015 });             // chin
+  b.box(0, 0.38, s * 1.03, 0.592, 0.04, 0.30, C.trainRed);
+  // the windscreen lies on the sloped face: the face centre after the tilt, pushed out along its normal
+  const sn = Math.sin(0.35), cs = Math.cos(0.35);
+  const fy = 0.52 + 0.15 * sn, fz = s * (1.02 + 0.15 * cs);
+  b.box(0, fy + 0.01 * sn, fz + s * 0.01 * cs, 0.44, 0.19, 0.012, 0x1a2430, { rotX: tilt });
+  for (const x of [-0.17, 0.17]) g.box(x, 0.24, s * 1.186, 0.12, 0.08, 0.012, s > 0 ? 0xfff3d0 : 0xff2a1a);   // lamps
+  b.box(0, 0.16, s * 1.19, 0.30, 0.05, 0.03, SKIRT);                                                   // coupler cover
+}
+
 const CATALOGUE = {
   irLoco: { len: 2.2, build(b, g) {
-    b.box(0, 0.33, 0, W, 0.40, 2.2, C.trainBlue, { jitter: 0.02 });
-    b.box(0, 0.24, 0, W + 0.01, 0.07, 2.21, C.trainRed);                       // waist stripe
+    bodyShell(b, 1.7);
+    roofArch(b, 1.75, 0.72, C.trainGrey);
     for (const s of [-1, 1]) {
-      b.box(0, 0.36, s * 0.98, W + 0.01, 0.34, 0.26, C.trainWhite);           // cab ends
-      g.box(0, 0.42, s * 1.108, 0.46, 0.14, 0.01, 0x1a2430);               // windscreen
-      g.box(0.18, 0.20, s * 1.108, 0.14, 0.10, 0.01, s > 0 ? 0xfff3d0 : 0xff2a1a);   // lamps
-      g.box(-0.18, 0.20, s * 1.108, 0.14, 0.10, 0.01, s > 0 ? 0xfff3d0 : 0xff2a1a);
-      b.box(0, 0.12, s * 0.72, 0.52, 0.12, 0.62, 0x2a2e33);                // bogies
+      cab(b, g, s);
+      for (const x of [-1, 1]) pane(b, g, x, 0.56, s * 0.72, 0.20, 0.15);   // cab side window
+      pane(b, g, s, 0.56, 0, 0.42, 0.15);                                     // a long saloon window each side
+      pane(b, g, s, 0.27, 0, 0.42, 0.11);
+      bogie(b, s * 0.70);
     }
-    b.box(0, 0.55, 0, W - 0.08, 0.05, 1.9, C.trainGrey);                       // roof
-    b.box(0, 0.60, -0.3, 0.3, 0.06, 0.5, 0x3b4148);                         // roof gear
-    b.box(0, 0.10, 0, 0.52, 0.06, 2.1, 0x2a2e33);                           // frame
+    // pantograph: two arms leaning into each other, a bar across the top
+    b.box(0, 0.86, 0.10, 0.20, 0.03, 0.30, BOGIE);
+    b.box(0, 0.96, 0.02, 0.02, 0.24, 0.02, BOGIE, { rotX: 0.55 });
+    b.box(0, 0.96, 0.18, 0.02, 0.24, 0.02, BOGIE, { rotX: -0.55 });
+    b.box(0, 1.07, 0.10, 0.34, 0.02, 0.04, 0x565c64);
+    b.box(0, 0.86, -0.45, 0.30, 0.06, 0.40, 0x9aa1a8);                        // roof equipment
+    b.box(0, 0.86, -0.45, 0.22, 0.07, 0.30, 0x8a9198);
   } },
   irCoach: { len: 2.3, build(b, g) {
-    b.box(0, 0.22, 0, W, 0.22, 2.3, C.trainBlue, { jitter: 0.02 });
-    b.box(0, 0.335, 0, W + 0.01, 0.03, 2.31, C.trainRed);
-    b.box(0, 0.50, 0, W, 0.30, 2.3, C.trainWhite, { jitter: 0.02 });
-    b.box(0, 0.665, 0, W - 0.06, 0.03, 2.2, C.trainGrey);
+    bodyShell(b, 2.3);
+    roofArch(b, 2.28, 0.72, C.trainGrey);
     for (const s of [-1, 1]) {
-      for (let i = 0; i < 7; i++) {
-        const z = -0.93 + i * 0.31;
-        g.box(s * (W / 2 + 0.004), 0.55, z, 0.01, 0.13, 0.22, C.windowLit, { jitter: 0.08 });   // upper deck
-        g.box(s * (W / 2 + 0.004), 0.25, z, 0.01, 0.10, 0.22, C.windowLit, { jitter: 0.08 });   // lower deck
+      for (let i = 0; i < 6; i++) {
+        const z = -0.60 + i * 0.24;
+        pane(b, g, s, 0.58, z, 0.18, 0.14);   // upper deck
+        pane(b, g, s, 0.27, z, 0.18, 0.10);   // lower deck
       }
-      b.box(0, 0.10, s * 0.78, 0.52, 0.10, 0.5, 0x2a2e33);
+      door(b, s, 0.95); door(b, s, -0.95);
+      b.box(0, 0.56, s * 1.152, 0.60, 0.32, 0.006, C.trainWhite);             // end wall, upper
+      b.box(0, 0.26, s * 1.152, 0.60, 0.20, 0.006, C.trainBlue);              // end wall, lower
+      b.box(0, 0.45, s * 1.165, 0.24, 0.46, 0.03, SKIRT);                     // gangway door
+      bogie(b, s * 0.80);
     }
-    b.box(0, 0.10, 0, 0.5, 0.05, 2.2, 0x2a2e33);
+    b.box(0, 0.86, 0, 0.28, 0.06, 0.50, 0x9aa1a8);                             // air conditioning
   } },
   steamLoco: { len: 1.8, build(b, g) {
     b.box(0, 0.16, 0, W, 0.10, 1.8, C.steamBlack);                           // frames
@@ -562,9 +619,12 @@ export function createTrains(rails, terrain, stationsById = null, { schedule = n
           for (let i = 0; i <= last; i++) {
             const car = t.cars[i], ty = types[car.type];
             if (!ty.glow) continue;
-            const c = Math.max(0.12, lightsOn ? 1 : car.level * smoothstep(car.onAt - 0.08, car.onAt + 0.08, night));
-            if (i === last) ty.glow.instanceColor.setXYZ(car.idx, Math.min(1.4, c * 1.25), c * 0.55, c * 0.55);
-            else ty.glow.instanceColor.setXYZ(car.idx, c, c, c);
+            // the panes are white in the mesh: by day they take the colour of tinted glass, and as
+            // the light goes they warm up to lamplight, car by car
+            const c = lightsOn ? 1 : car.level * smoothstep(car.onAt - 0.08, car.onAt + 0.08, night);
+            const gr = 0.34 + (1.00 - 0.34) * c, gg = 0.44 + (0.83 - 0.44) * c, gb = 0.56 + (0.54 - 0.56) * c;
+            if (i === last) ty.glow.instanceColor.setXYZ(car.idx, Math.min(1.4, gr * (1 + 0.25 * c)), gg * (1 - 0.45 * c), gb * (1 - 0.45 * c));
+            else ty.glow.instanceColor.setXYZ(car.idx, gr, gg, gb);
             ty.glow.instanceColor.needsUpdate = true;
           }
         }
