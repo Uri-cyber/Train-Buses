@@ -62,7 +62,7 @@ jobs:
       # dist/fixtures stays: the OpenStreetMap snapshot in it is now the map every visitor
       # gets, not a test file. The synthetic timetable and live feed are still test-only.
       - name: Remove the test fixtures from the deployed site
-        run: rm -f dist/live-fixture.json dist/timetable-fixture.json
+        run: rm -f dist/live-fixture.json dist/timetable-fixture.json dist/buses-fixture.json
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

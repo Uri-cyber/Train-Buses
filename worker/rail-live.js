@@ -141,12 +141,66 @@ async function build() {
   return JSON.stringify(d);
 }
 
+/*
+ * Buses: every public bus's position, from the Ministry of Transport's SIRI feed as re-published
+ * by Hasadna's Open Bus project (open-bus-stride-api.hasadna.org.il), which loads a snapshot a
+ * minute. The answer for one snapshot is a few megabytes of JSON on a weekday, far too much to
+ * send every visitor every minute and too much to parse inside one Worker call on the free plan.
+ * So the page asks for it in parts of BUS_PAGE rows, each part is shrunk to six fields a bus and
+ * kept in Cloudflare's cache for the life of its snapshot: the volunteer-run API is asked once a
+ * minute per part, however many people are watching.
+ *
+ * GET /buses?part=k -> { snapshot, at, part, page, n, v: [[vehicle, lat, lon, bearing, speed, operator], ...] }
+ */
+const BUS_API = 'https://open-bus-stride-api.hasadna.org.il';
+const BUS_PAGE = 1000;
+let busSnap = { at: 0, id: null, name: null };
+
+async function latestBusSnapshot() {
+  if (busSnap.id && Date.now() - busSnap.at < 20000) return busSnap;
+  const r = await fetch(`${BUS_API}/siri_snapshots/list?limit=4&order_by=id%20desc`, { cf: { cacheTtl: 15 } });
+  if (!r.ok) throw new Error(`open bus snapshots ${r.status}`);
+  const list = await r.json();
+  const s = list.find((x) => x.etl_status === 'loaded');          // the newest may still be loading
+  if (!s) throw new Error('open bus: no loaded snapshot');
+  busSnap = { at: Date.now(), id: s.id, name: s.snapshot_id };
+  return busSnap;
+}
+
+async function buses(url, cors) {
+  const part = Math.max(0, Math.min(30, parseInt(url.searchParams.get('part') || '0', 10) || 0));
+  const snap = await latestBusSnapshot();
+  const key = new Request(`https://cache.israel-by-rail/buses/${snap.id}/${part}`);
+  const cache = caches.default;
+  const hit = await cache.match(key);
+  if (hit) return new Response(hit.body, { headers: { ...cors, 'cache-control': 'public, max-age=30', 'x-cache': 'hit' } });
+  const q = `siri_snapshot_ids=${snap.id}&limit=${BUS_PAGE}&offset=${part * BUS_PAGE}&order_by=id%20asc`;
+  const r = await fetch(`${BUS_API}/siri_vehicle_locations/list?${q}`);
+  if (!r.ok) throw new Error(`open bus locations ${r.status}`);
+  const rows = await r.json();
+  const v = [];
+  for (const b of rows) {
+    if (b.lat == null || b.lon == null) continue;
+    v.push([String(b.siri_ride__vehicle_ref ?? b.siri_ride__id), Math.round(b.lat * 1e5) / 1e5, Math.round(b.lon * 1e5) / 1e5,
+      b.bearing ?? 0, b.velocity ?? 0, b.siri_route__operator_ref ?? 0]);
+  }
+  // snapshot names are Israel-agnostic UTC minutes: 2026/09/26/11/12
+  const [Y, M, D, h, m] = snap.name.split('/').map(Number);
+  const body = JSON.stringify({ snapshot: snap.id, at: Date.UTC(Y, M - 1, D, h, m), part, page: BUS_PAGE, n: rows.length, v });
+  await cache.put(key, new Response(body, { headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=120' } }));
+  return new Response(body, { headers: { ...cors, 'cache-control': 'public, max-age=30' } });
+}
+
 export default {
   async fetch(request) {
     const cors = corsFor(request.headers.get('origin'));
     if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
     const url = new URL(request.url);
-    if (url.pathname !== '/' && url.pathname !== '/live') return new Response('Israel by Rail live proxy: GET /live', { status: 404, headers: cors });
+    if (url.pathname === '/buses') {
+      try { return await buses(url, cors); }
+      catch (e) { return new Response(JSON.stringify({ error: String(e?.message || e) }), { status: 502, headers: cors }); }
+    }
+    if (url.pathname !== '/' && url.pathname !== '/live') return new Response('Israel by Rail live proxy: GET /live, GET /buses?part=0', { status: 404, headers: cors });
     try {
       lastBody = await build();
       return new Response(lastBody, { headers: { ...cors, 'cache-control': 'public, max-age=20' } });

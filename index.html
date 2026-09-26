@@ -84,7 +84,15 @@
     border-radius: 7px; padding: 4px 9px; cursor: pointer; direction: rtl;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
   }
-  #credit-toggle:hover { color: #f3ede2; }
+  #credit-toggle:hover, #bus-toggle:hover { color: #f3ede2; }
+  /* the bus layer's switch sits beside the small print, the same quiet pill, lit when on */
+  #bus-toggle {
+    font: 12px system-ui, "Segoe UI", Arial, sans-serif; color: #9db8d8; margin-inline-start: 6px;
+    background: rgba(8, 20, 38, 0.55); border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 7px; padding: 4px 9px; cursor: pointer; direction: rtl;
+  }
+  #bus-toggle.on { color: #f3ede2; border-color: rgba(106, 208, 122, 0.7); background: rgba(31, 138, 76, 0.35); }
+  #bus-toggle:focus-visible { outline: 3px solid #ffd27a; outline-offset: 2px; }
   #credit-toggle:focus-visible { outline: 3px solid #ffd27a; outline-offset: 2px; }
   /* A disclaimer nobody can read is not a disclaimer: 12px and full opacity, no dimming. */
   #credit {
@@ -150,9 +158,10 @@
   <div id="credit" hidden>
     <div class="he">אתר עצמאי ולא רשמי, ללא קשר לרכבת ישראל או למשרד התחבורה. המידע להמחשה בלבד ועשוי להיות שגוי או לא מעודכן. אין להסתמך עליו לתכנון נסיעה. לוח זמנים ומצב רכבות: אתר ואפליקציית רכבת ישראל. <a href="./accessibility.html">הצהרת נגישות</a></div>
     <div class="en-note">Independent, unofficial project. Not affiliated with Israel Railways or the Ministry of Transport. For illustration only; data may be wrong or out of date. Do not rely on it to plan travel.</div>
-    Map: Natural Earth (public domain). Rails and stations: OpenStreetMap contributors (ODbL) when reachable. Timetable: Israel Ministry of Transport (GTFS).
+    Map: Natural Earth (public domain). Rails and stations: OpenStreetMap contributors (ODbL) when reachable. Timetable: Israel Ministry of Transport (GTFS). Buses: Ministry of Transport SIRI via Hasadna Open Bus.
   </div>
   <button type="button" id="credit-toggle" aria-expanded="false" aria-controls="credit">מידע ותנאים</button>
+  <button type="button" id="bus-toggle" aria-pressed="true" title="אוטובוסים בזמן אמת (B)">🚌 אוטובוסים</button>
   </div>
   <nav id="controls" aria-label="שולחן הבקרה">
     <button type="button" data-btn="lights" aria-pressed="false" aria-label="תאורה. הדלקה וכיבוי של אורות הרכבות והתחנות">תאורה</button>

@@ -44,3 +44,13 @@ jobs:
           node -e "const d=require('./live.json'); const t=Object.values(d.trains||{});
             console.log('trains', t.length, '| positioned', t.filter(x=>x.delay!==null).length, '| late', t.filter(x=>x.delay>0).length, '| pairs', JSON.stringify(d.pairs));
             if (t.length < 50) { console.log('::error::the proxy returned almost nothing'); process.exit(1); }"
+      - name: And serves real buses
+        run: |
+          URL=$(grep -oE "const LIVE_URL = '[^']+'" src/main.js | cut -d"'" -f2 | sed 's#/live$#/buses#')
+          curl -sS -m 60 -D h.txt -o b.json -H 'origin: https://zoozsoos.co' "$URL?part=0" -w 'buses part 0: HTTP %{http_code} %{size_download} bytes %{time_total}s\n'
+          grep -iE 'access-control-allow-origin|x-cache' h.txt || true
+          node -e "const d=require('./b.json'); if (d.error) { console.log('::error::' + d.error); process.exit(1) }
+            const age = Math.round((Date.now() - d.at) / 60000);
+            console.log('snapshot', d.snapshot, '| minutes old', age, '| rows in part', d.n, '| buses', d.v.length, '| first', JSON.stringify(d.v[0]));
+            if (!Array.isArray(d.v)) process.exit(1);
+            if (age > 30) console.log('::warning::the newest bus snapshot is ' + age + ' minutes old');"

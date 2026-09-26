@@ -17,7 +17,8 @@
     "timetable": "node scripts/fetch-gtfs.mjs",
     "test:live": "node scripts/osm-fixture.mjs && node scripts/timetable-fixture.mjs && node scripts/live-fixture.mjs && node scripts/rails-check.mjs 'http://127.0.0.1:4173/?osm=fixture&tt=./timetable-fixture.json&live=./live-fixture.json' && node scripts/interaction-test.mjs 'http://127.0.0.1:4173/?osm=fixture&tt=./timetable-fixture.json&desk'",
     "preview-image": "node scripts/preview-image.mjs",
-    "visitor": "node scripts/visitor-check.mjs"
+    "visitor": "node scripts/visitor-check.mjs",
+    "buses-fixture": "node scripts/buses-fixture.mjs"
   },
   "dependencies": {
     "three": "^0.169.0"

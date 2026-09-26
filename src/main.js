@@ -27,6 +27,7 @@ import { createLive } from './live.js';
 import { makeRouter } from './router.js';
 import { makeProjection } from './geo.js';
 import { pickStyle, applyPalette, applyLook } from './styles.js';
+import { createBuses } from './buses.js';
 
 const params = new URLSearchParams(location.search);
 const STYLE = pickStyle(params);                  // ?style=diorama | neon | poster; the palette is rewritten before anything is built
@@ -125,7 +126,24 @@ const state = {
   speed: 0.6,
   lights: false, turntable: true, traffic: true, whistle: false,
   tour: params.get('tour') !== 'off',             // the camera rides the trains on its own
+  buses: params.get('buses') !== 'off',           // the real bus layer, on unless asked otherwise
 };
+
+/* ------------------------------------------------ real buses (Open Bus / MOT SIRI) */
+// ?buses=off starts with the layer off; ?buses=<url> reads another source (a fixture in the checks)
+const BUS_SRC = params.get('buses') && params.get('buses') !== 'off' ? params.get('buses') : LIVE_URL.replace(/\/live$/, '/buses');
+const buses = createBuses({ world, terrain, source: BUS_SRC });
+scene.add(buses.group);
+const busBtn = document.getElementById('bus-toggle');
+const setBuses = (on) => {
+  state.buses = on;
+  buses.visible = on;
+  busBtn?.setAttribute('aria-pressed', String(on));
+  busBtn?.classList.toggle('on', on);
+};
+setBuses(state.buses);
+busBtn?.addEventListener('click', () => setBuses(!state.buses));
+addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 'b' && !e.ctrlKey && !e.metaKey) setBuses(!state.buses); });
 const tour = createTour({ cam, getTrains: () => built.trains.trains, getLandmarks: () => built.landmarks.list, terrain, state, hint: document.getElementById('tour') });
 const _proj = new THREE.Vector3();
 let focusY = 0.52;               // where the tilt-shift's sharp band sits (0 bottom, 1 top)
@@ -259,6 +277,7 @@ function frame() {
   const skyState = sky.update(skyHour, dt, cam.camera.position, cam.distance());
   built.trains.update(dt, state.speed, 1 - skyState.day, state.lights, cam.controls.target, tour.trainId, cam.distance(), { T, ymd: today.ymd, weekday: today.weekday });
   traffic.update(dt, state.traffic, 1 - skyState.day, state.lights);
+  buses.update(dt, state.lights ? 1 : 1 - skyState.day);
   tour.update(dt);                 // after the trains moved, before the camera settles
   cam.update(dt);
   const dist = cam.distance();
@@ -330,6 +349,7 @@ window.__app = Object.assign(Object.create(app), {
   fly: (x, z, dist) => cam.focus(x, z, dist),
   selectStation: (id) => { const s = built.stations.byId[id]; built.stations.select(id); cam.focus(s.x, s.z, 12); },
   horn: () => { const t = built.trains.nearestTo(cam.controls.target); (t && t.kind === 'heritage' ? whistle : horn)(); },
+  buses: () => ({ on: state.buses, ...buses.status }),
   info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, fps: app.fps, skyHour: app.skyHour }),
 });
 
