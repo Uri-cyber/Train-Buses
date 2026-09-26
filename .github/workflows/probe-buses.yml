@@ -1,7 +1,7 @@
 name: Probe the Open Bus API
 
 # One-off look at Hasadna's Open Bus Stride API (MOT SIRI bus positions, re-published openly):
-# how fresh the positions are, how many buses a two-minute window holds, how big that answer is,
+# how fresh the positions are, how many buses a short window holds, how big that answer is,
 # and whether a browser on another site may read it.
 on:
   workflow_dispatch:
@@ -10,26 +10,24 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Newest positions, headers and shape
-        run: |
-          API=https://open-bus-stride-api.hasadna.org.il
-          echo "== newest 3 rows"
-          curl -sS -m 60 -D h.txt -o one.json -H 'Origin: https://zoozsoos.co' "$API/siri_vehicle_locations/list?limit=3&order_by=recorded_at_time%20desc" -w 'HTTP %{http_code} %{size_download} bytes %{time_total}s\n'
-          grep -iE 'access-control|content-type|cache' h.txt || true
-          head -c 2500 one.json; echo
-      - name: How many buses in a recent window, and how heavy
-        run: |
-          API=https://open-bus-stride-api.hasadna.org.il
-          NEWEST=$(node -e "console.log(require('./one.json')[0].recorded_at_time)" 2>/dev/null || true)
-          echo "newest recorded_at_time: $NEWEST   now: $(date -u +%FT%TZ)"
-          for MIN in 1 2 5; do
-            FROM=$(date -u -d "$NEWEST - $MIN min" +%FT%TZ 2>/dev/null || date -u -d "-$((MIN+5)) min" +%FT%TZ)
-            curl -sS -m 90 -o w$MIN.json "$API/siri_vehicle_locations/list?limit=50000&recorded_at_time_from=$FROM" -w "window ${MIN}m: HTTP %{http_code} %{size_download} bytes %{time_total}s\n"
-            node -e "const a=require('./w$MIN.json'); const v=new Set(a.map(r=>r.siri_snapshot_id+':'+(r.siri_ride_stop_id??''))); const veh=new Set(a.map(r=>r.siri_ride__vehicle_ref??r.siri_ride_id)); console.log('  rows', a.length, '| distinct rides', new Set(a.map(r=>r.siri_ride_id)).size, '| keys', Object.keys(a[0]||{}).join(','))"
-          done
-      - name: Other endpoints worth knowing
+      - name: The parameters the list endpoint takes, and the snapshot endpoints
         run: |
           API=https://open-bus-stride-api.hasadna.org.il
           curl -sS -m 60 "$API/openapi.json" -o api.json -w 'openapi %{http_code} %{size_download}\n'
-          node -e "const a=require('./api.json'); console.log(Object.keys(a.paths).filter(p=>/siri|gtfs_rides|vehicle/.test(p)).join('\n'))"
-          node -e "const a=require('./api.json'); const p=a.paths['/siri_vehicle_locations/list'].get.parameters.map(x=>x.name); console.log('params:', p.join(', '))"
+          node -e "const a=require('./api.json'); console.log(Object.keys(a.paths).filter(p=>/siri/.test(p)).join('\n')); console.log('vehicle_locations params:', a.paths['/siri_vehicle_locations/list'].get.parameters.map(x=>x.name).join(', ')); console.log('snapshots params:', (a.paths['/siri_snapshots/list']?.get.parameters||[]).map(x=>x.name).join(', '))"
+      - name: How fresh is the newest snapshot
+        run: |
+          API=https://open-bus-stride-api.hasadna.org.il
+          echo "now UTC: $(date -u +%FT%TZ)"
+          curl -sS -m 60 "$API/siri_snapshots/list?limit=5&order_by=id%20desc" -o snaps.json -w 'snapshots %{http_code}\n'
+          node -e "for (const s of require('./snaps.json')) console.log(JSON.stringify(s))"
+      - name: Buses recorded in the last few minutes
+        run: |
+          API=https://open-bus-stride-api.hasadna.org.il
+          for MIN in 2 5 15; do
+            FROM=$(date -u -d "-$MIN min" +%FT%TZ); TO=$(date -u -d "+2 min" +%FT%TZ)
+            curl -sS -m 120 -o w.json "$API/siri_vehicle_locations/list?limit=50000&recorded_at_time_from=$FROM&recorded_at_time_to=$TO" -w "last ${MIN}m: HTTP %{http_code} %{size_download} bytes %{time_total}s\n"
+            node -e "const a=require('./w.json'); if(!Array.isArray(a)){console.log('  not a list:', JSON.stringify(a).slice(0,300)); process.exit(0)}
+              const veh=new Set(a.map(r=>r.siri_ride__vehicle_ref)); const t=a.map(r=>r.recorded_at_time).sort();
+              console.log('  rows', a.length, '| vehicles', veh.size, '| oldest', t[0], '| newest', t[t.length-1], '| moving', a.filter(r=>r.velocity>0).length)"
+          done
