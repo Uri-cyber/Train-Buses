@@ -20,7 +20,7 @@ for (let k = 0; k < 30; k++) {
 console.log(`BUSES total ${total} | parts ${parts} | bytes ${bytes} | snapshot ${snapshot} | age min ${Math.round((Date.now() - at) / 60000)}`);
 
 const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
-const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
+const p = await b.newPage({ viewport: { width: 1100, height: 690 } });
 await p.goto(SITE + '?tour=off', { waitUntil: 'load', timeout: 120000 });
 await p.waitForFunction(() => window.__app?.buses?.().state === 'ok', null, { timeout: 180000 });
 const layer = await p.evaluate(() => window.__app.buses());
@@ -30,7 +30,7 @@ const views = [['close', [-38, 14, 8], [-21, 0.05, -9]], ['wide', [-70, 70, 60],
 for (const [name, pos, target] of views) {
   await p.evaluate(([a, t]) => window.__app.setView(a, t), [pos, target]);
   await p.waitForTimeout(4000);
-  await p.screenshot({ path: `rush-${name}.jpg`, type: 'jpeg', quality: 70 });
+  await p.screenshot({ path: `rush-${name}.jpg`, type: 'jpeg', quality: 70, timeout: 240000 });
   const b64 = readFileSync(`rush-${name}.jpg`).toString('base64');
   console.log(`===SHOT ${name} ${b64.length}===`);
   for (let i = 0; i < b64.length; i += 8000) console.log('B64:' + b64.slice(i, i + 8000));
