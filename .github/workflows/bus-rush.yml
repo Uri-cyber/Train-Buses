@@ -1,0 +1,18 @@
+name: Bus layer at a busy moment
+
+# Counts the buses the proxy serves right now and renders the live site over central Tel Aviv,
+# to judge whether the real-bus layer stays readable at rush hour.
+on:
+  workflow_dispatch:
+
+jobs:
+  look:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/bus-rush-check.mjs
