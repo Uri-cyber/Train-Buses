@@ -31,9 +31,6 @@ for (const [name, pos, target] of views) {
   await p.evaluate(([a, t]) => window.__app.setView(a, t), [pos, target]);
   await p.waitForTimeout(4000);
   await p.screenshot({ path: `rush-${name}.jpg`, type: 'jpeg', quality: 70, timeout: 240000 });
-  const b64 = readFileSync(`rush-${name}.jpg`).toString('base64');
-  console.log(`===SHOT ${name} ${b64.length}===`);
-  for (let i = 0; i < b64.length; i += 8000) console.log('B64:' + b64.slice(i, i + 8000));
-  console.log(`===END ${name}===`);
+  console.log(`shot ${name}: ${readFileSync(`rush-${name}.jpg`).length} bytes`);
 }
 await b.close();
